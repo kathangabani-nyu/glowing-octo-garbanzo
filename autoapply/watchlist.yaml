@@ -1,0 +1,22 @@
+# Placeholder watchlist for clone / public repo. For real runs use watchlist.local.yaml:
+#   python run_daily.py --watchlist watchlist.local.yaml
+companies:
+  - name: "Example Corp"
+    domain: "example.com"
+    priority: 3
+    ats: "greenhouse"
+    slug: "examplecorp"
+    careers_url: "https://example.com/careers"
+    jobs_url: "https://boards.greenhouse.io/examplecorp"
+    job_family_focus: "engineering"
+    notes: "Replace with real targets."
+
+  - name: "Demo Labs"
+    domain: "demolabs.ai"
+    priority: 2
+    ats: "lever"
+    slug: "demolabs"
+    careers_url: "https://demolabs.ai/careers"
+    jobs_url: "https://jobs.lever.co/demolabs"
+    job_family_focus: "machine_learning"
+    notes: "Lever example."

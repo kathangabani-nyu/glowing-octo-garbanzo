@@ -1,0 +1,208 @@
+# Placeholder defaults for clone / public repo. For real runs, copy to config.local.yaml
+# or replace values here, and use: python run_daily.py --config config.local.yaml
+sender:
+  name: "Your Name"
+  email: "your.email@gmail.com"
+  signature: ""
+
+sending:
+  max_initial_per_day: 12
+  max_followups_per_day: 8
+  min_delay_seconds: 45
+  max_delay_seconds: 90
+  business_hours_start: 8
+  business_hours_end: 18
+
+safety:
+  max_bounce_rate: 0.05
+  bounce_window: 50
+  max_review_skip_rate: 0.40
+  review_skip_window: 20
+
+cooldowns:
+  person_days: 90
+  company_job_family_days: 30
+
+job_targets:
+  title_keywords:
+    - "software engineer"
+    - "machine learning engineer"
+  title_exclude:
+    - "intern"
+    - "senior"
+    - "director"
+  skills:
+    - "Python"
+  seniority:
+    - "entry"
+    - "new grad"
+  locations: []
+  remote_ok: true
+  min_experience_years: 0
+  max_experience_years: 5
+  visa_reject_keywords:
+    - "no sponsorship"
+    - "citizenship required"
+
+qualification:
+  auto_threshold: 65
+  review_threshold: 35
+
+message_quality:
+  auto_send_threshold: 55
+
+database:
+  path: "autoapply.db"
+
+resume_path: "resumes/your_resume.pdf"
+
+resume_variants:
+  ml: "resumes/ml_resume.pdf"
+  software: "resumes/swe_resume.pdf"
+  research: "resumes/research_resume.pdf"
+  fullstack: "resumes/fullstack_resume.pdf"
+
+template_dir: "templates"
+
+llm:
+  use_local_llm: true
+  ollama_url: "http://localhost:11434"
+  model: "llama3.1:8b"
+  timeout_seconds: 30
+
+domain_profile:
+  name: "cs"
+  role_buckets:
+    ml:
+      - "machine learning"
+      - "ml engineer"
+      - "ai engineer"
+      - "deep learning"
+      - "nlp"
+      - "computer vision"
+    research:
+      - "research scientist"
+      - "research engineer"
+      - "applied scientist"
+    software:
+      - "software engineer"
+      - "backend engineer"
+      - "systems engineer"
+      - "platform engineer"
+    fullstack:
+      - "fullstack"
+      - "full stack"
+      - "full-stack"
+      - "frontend"
+      - "front-end"
+      - "web developer"
+  default_bucket: "software"
+  discovery_keywords:
+    - "engineer"
+    - "developer"
+    - "scientist"
+    - "machine learning"
+    - "ml "
+    - " ai"
+    - "data"
+    - "research"
+    - "platform"
+    - "backend"
+    - "frontend"
+    - "full stack"
+    - "full-stack"
+  reject_roles:
+    - "analyst"
+    - "operations"
+    - "benefits"
+    - "compliance"
+    - "legal"
+    - "counsel"
+    - "attorney"
+    - "paralegal"
+    - "accountant"
+    - "accounting"
+    - "finance manager"
+    - "financial"
+    - "controller"
+    - "tax"
+    - "recruiter"
+    - "recruiting"
+    - "talent acquisition"
+    - "human resources"
+    - "people operations"
+    - "people partner"
+    - "hr "
+    - "sales"
+    - "account executive"
+    - "account manager"
+    - "business development"
+    - "marketing"
+    - "content"
+    - "copywriter"
+    - "communications"
+    - "pr "
+    - "public relations"
+    - "social media"
+    - "growth marketing"
+    - "product designer"
+    - "ux designer"
+    - "ui designer"
+    - "graphic designer"
+    - "brand designer"
+    - "visual designer"
+    - "design director"
+    - "product manager"
+    - "program manager"
+    - "project manager"
+    - "customer success"
+    - "customer support"
+    - "support engineer"
+    - "office manager"
+    - "executive assistant"
+    - "administrative"
+    - "facilities"
+    - "real estate"
+    - "workplace"
+    - "rtl"
+    - "asic"
+    - "fpga"
+    - "hardware engineer"
+    - "mechanical engineer"
+    - "electrical engineer"
+    - "civil engineer"
+    - "chemical engineer"
+    - "verification engineer"
+    - "codesign"
+    - "physical design"
+    - "layout engineer"
+    - "silicon"
+    - "chip"
+    - "policy"
+    - "government affairs"
+    - "lobbyist"
+    - "supply chain"
+    - "logistics"
+    - "procurement"
+    - "inventory"
+    - "warehouse"
+    - "shipping"
+    - "nurse"
+    - "physician"
+    - "clinician"
+    - "therapist"
+    - "pharmacist"
+    - "kyc"
+    - "sanctions"
+    - "aml"
+    - "anti-money"
+    - "fraud analyst"
+    - "risk analyst"
+    - "audit"
+    - "auditor"
+  generic_team_words:
+    - "team"
+    - "engineering"
+    - "company"
+    - "organization"
+    - "group"

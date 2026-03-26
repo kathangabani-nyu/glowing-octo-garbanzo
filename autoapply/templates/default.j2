@@ -1,0 +1,16 @@
+Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+
+I came across the {{ job_title }} role at {{ company_name }} and wanted to reach out because it genuinely caught my interest.
+{% if team_or_product %}I was especially interested in the opportunity to contribute to the {{ team_or_product }} team.{% elif company_blurb %}I was also drawn to the role because {{ company_blurb|lower }}.{% endif %}
+
+I am looking for opportunities where I can contribute thoughtfully, keep learning, and do strong technical work with a team that cares about real impact.
+{% if key_technology %}A meaningful part of my recent work has focused on {{ key_technology }}, and I would be excited to bring that experience into this kind of role.{% else %}A meaningful part of my recent work has involved building practical technical projects and learning quickly in unfamiliar areas, which is part of why this role appealed to me.{% endif %}
+
+If useful, I would be happy to share a few relevant examples of my work and learn more about what you are looking for in the role.
+
+Best,
+{{ sender_name }}
+{{ sender_email }}
+{% if sender_signature %}
+{{ sender_signature }}
+{% endif %}

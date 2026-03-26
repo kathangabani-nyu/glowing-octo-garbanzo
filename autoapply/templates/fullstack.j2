@@ -1,0 +1,16 @@
+Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+
+I wanted to reach out about the {{ job_title }} role at {{ company_name }} because it sounds like the kind of end-to-end product and engineering work I really enjoy.
+{% if team_or_product %}The scope of the {{ team_or_product }} team in particular feels like a strong match for the kind of problems I like working on.{% elif company_blurb %}I was also drawn to the role because {{ company_blurb|lower }}.{% endif %}
+
+I am especially interested in opportunities where I can work across product and engineering boundaries, contribute thoughtfully to user-facing systems, and keep improving both speed and quality of execution.
+{% if key_technology %}I have recently shipped end-to-end work using {{ key_technology }} and related tools, and I enjoy connecting implementation details with the broader user experience.{% else %}I enjoy owning work from idea to implementation, especially when it involves balancing product thinking, engineering quality, and a practical sense of what users need.{% endif %}
+
+If this role is still open, I would love the chance to share a few relevant examples of my work and learn more about what the team is looking for.
+
+Best,
+{{ sender_name }}
+{{ sender_email }}
+{% if sender_signature %}
+{{ sender_signature }}
+{% endif %}

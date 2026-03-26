@@ -1,0 +1,74 @@
+sender:
+  name: "Your Name"
+  email: "your.real.email@gmail.com"
+  signature: ""
+
+sending:
+  max_initial_per_day: 12
+  max_followups_per_day: 8
+  min_delay_seconds: 45
+  max_delay_seconds: 90
+  business_hours_start: 8
+  business_hours_end: 18
+
+safety:
+  max_bounce_rate: 0.05
+  bounce_window: 50
+  max_review_skip_rate: 0.40
+  review_skip_window: 20
+
+cooldowns:
+  person_days: 90
+  company_job_family_days: 30
+
+job_targets:
+  title_keywords:
+    - "machine learning"
+    - "ml engineer"
+    - "data scientist"
+    - "software engineer"
+  title_exclude:
+    - "intern"
+    - "director"
+    - "vp"
+  skills:
+    - "python"
+    - "pytorch"
+    - "tensorflow"
+    - "sql"
+  seniority:
+    - "mid"
+    - "senior"
+  locations:
+    - "remote"
+    - "new york"
+    - "san francisco"
+  remote_ok: true
+  min_experience_years: 2
+  max_experience_years: 8
+  visa_reject_keywords:
+    - "must be authorized"
+    - "no sponsorship"
+
+qualification:
+  auto_threshold: 70
+  review_threshold: 40
+
+message_quality:
+  auto_send_threshold: 60
+
+database:
+  path: "autoapply.db"
+
+resume_variants:
+  ml: "resumes/ml_resume.pdf"
+  software: "resumes/swe_resume.pdf"
+  research: "resumes/research_resume.pdf"
+
+template_dir: "templates"
+
+llm:
+  use_local_llm: false
+  ollama_url: "http://localhost:11434"
+  model: "llama3.1:8b"
+  timeout_seconds: 30

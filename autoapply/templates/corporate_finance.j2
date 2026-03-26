@@ -1,0 +1,16 @@
+Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+
+I saw the {{ job_title }} opening at {{ company_name }} and wanted to reach out because it looked like a thoughtful fit with the kind of finance work I want to keep doing.
+{% if team_or_product %}I was especially interested in the opportunity to contribute to {{ team_or_product }}.{% elif company_blurb %}I was also drawn to the role because {{ company_blurb|lower }}.{% endif %}
+
+I am looking for opportunities where I can bring strong analytical structure, careful execution, and a practical understanding of how financial decisions support the broader business.
+{% if key_technology %}My recent work has involved {{ key_technology }}, and I enjoy using that kind of detail-oriented analysis to support clearer planning and better decisions.{% else %}My recent work has focused on analysis, modeling, and communicating clearly across stakeholders, which is a big part of why this role stood out to me.{% endif %}
+
+If useful, I would be happy to share more about my background and why I believe I could contribute well here.
+
+Best,
+{{ sender_name }}
+{{ sender_email }}
+{% if sender_signature %}
+{{ sender_signature }}
+{% endif %}

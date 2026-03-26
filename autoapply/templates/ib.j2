@@ -1,0 +1,16 @@
+Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+
+I came across the {{ job_title }} opportunity at {{ company_name }} and wanted to reach out because it stood out to me as the kind of role where I could contribute seriously and keep building strong transaction judgment.
+{% if team_or_product %}I was especially interested in the chance to support work tied to {{ team_or_product }}.{% elif company_blurb %}I was particularly drawn to the role because {{ company_blurb|lower }}.{% endif %}
+
+I am looking for opportunities where I can bring strong analytical discipline, attention to detail, and genuine interest in how companies, industries, and transactions fit together.
+{% if key_technology %}A meaningful part of my recent work has involved {{ key_technology }}, and I enjoy translating detailed analysis into clear, decision-ready output.{% else %}A meaningful part of my recent work has involved financial analysis, research, and structured problem-solving, which is a big part of why this role appealed to me.{% endif %}
+
+If helpful, I would be glad to share my background and a few relevant examples of the kind of work I have been doing.
+
+Best,
+{{ sender_name }}
+{{ sender_email }}
+{% if sender_signature %}
+{{ sender_signature }}
+{% endif %}

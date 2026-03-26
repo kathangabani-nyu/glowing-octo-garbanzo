@@ -1,0 +1,16 @@
+Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+
+I saw the {{ job_title }} role at {{ company_name }} and wanted to reach out because it feels closely aligned with the kind of work I am excited to keep doing.
+{% if team_or_product %}I was especially interested in the opportunity to contribute to the {{ team_or_product }} team.{% elif company_blurb %}I was also drawn to the role because {{ company_blurb|lower }}.{% endif %}
+
+I am particularly interested in roles where I can combine strong engineering fundamentals with practical machine learning work that has a clear product or research impact.
+{% if key_technology %}Recently, a meaningful part of my work has involved building and experimenting with {{ key_technology }}, and I would be excited to bring that experience into a team shipping thoughtful ML systems.{% else %}Recently, a meaningful part of my work has involved applied ML development, experimentation, and turning ideas into practical systems that are useful outside of a demo environment.{% endif %}
+
+If useful, I would be happy to share a few concrete projects and a bit more context on why I think I could contribute well in this role.
+
+Best,
+{{ sender_name }}
+{{ sender_email }}
+{% if sender_signature %}
+{{ sender_signature }}
+{% endif %}

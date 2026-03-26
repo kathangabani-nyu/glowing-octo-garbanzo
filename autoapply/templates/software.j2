@@ -1,0 +1,16 @@
+Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+
+I came across the {{ job_title }} opening at {{ company_name }} and wanted to introduce myself because the role stood out to me right away.
+{% if team_or_product %}The chance to contribute to work around {{ team_or_product }} especially caught my attention.{% elif company_blurb %}What especially stood out to me is how {{ company_blurb|lower }}.{% endif %}
+
+I am looking for opportunities where I can contribute thoughtfully, learn quickly, and grow within a strong engineering team.
+{% if key_technology %}A lot of my recent hands-on work has involved building with {{ key_technology }} in real projects, and I enjoy turning technical ideas into reliable, production-ready systems.{% else %}A lot of my recent work has focused on building reliable software systems, collaborating across the stack, and shipping work with care and attention to detail.{% endif %}
+
+If it would be helpful, I would be glad to share a few relevant projects and explain why I think I could be a strong fit for this role.
+
+Best,
+{{ sender_name }}
+{{ sender_email }}
+{% if sender_signature %}
+{{ sender_signature }}
+{% endif %}

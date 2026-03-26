@@ -1,0 +1,47 @@
+# Credentials & tokens
+credentials.json
+token.json
+
+# Local overrides (real sender, watchlist, resumes — not for Git)
+config.local.yaml
+watchlist.local.yaml
+config_finance.yaml
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Local resume assets (keep out of version control)
+resumes/
+
+# Dry run output
+dry_run_output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

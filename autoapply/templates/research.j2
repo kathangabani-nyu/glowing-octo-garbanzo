@@ -1,0 +1,16 @@
+Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+
+I wanted to reach out about the {{ job_title }} position at {{ company_name }} because the role immediately stood out to me.
+{% if team_or_product %}The mission and scope of the {{ team_or_product }} team are especially compelling to me.{% elif company_blurb %}I was also drawn to the opportunity because {{ company_blurb|lower }}.{% endif %}
+
+I am especially motivated by work that combines strong technical depth with practical impact, and I am looking for opportunities where I can keep growing while contributing carefully and meaningfully from the start.
+{% if key_technology %}My recent research and implementation work has included {{ key_technology }}, and I enjoy moving between investigation, experimentation, and building things that can actually be used and evaluated in practice.{% else %}My recent work has involved research-oriented problem solving, implementation, and translating technical ideas into work that can be tested and built on in a practical way.{% endif %}
+
+If helpful, I would be glad to share more context on my background and a few projects that feel especially relevant to this role.
+
+Best,
+{{ sender_name }}
+{{ sender_email }}
+{% if sender_signature %}
+{{ sender_signature }}
+{% endif %}
