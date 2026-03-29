@@ -55,6 +55,8 @@ class JobTarget:
     seniority: List[str] = field(default_factory=list)
     locations: List[str] = field(default_factory=list)
     remote_ok: bool = True
+    us_only: bool = False
+    location_reject_keywords: List[str] = field(default_factory=list)
     min_experience_years: int = 0
     max_experience_years: int = 99
     visa_reject_keywords: List[str] = field(default_factory=list)
@@ -100,6 +102,14 @@ class LLMConfig:
 @dataclass
 class DatabaseConfig:
     path: str = "autoapply.db"
+
+
+@dataclass
+class DiscoveryConfig:
+    hn_enabled: bool = True
+    hn_max_per_run: int = 50
+    github_trending_enabled: bool = False
+    builtin_cities: List[str] = field(default_factory=lambda: ["nyc", "sf", "chicago", "boston", "la"])
 
 
 @dataclass
@@ -160,6 +170,7 @@ class Config:
     reply_keywords: ReplyKeywords = field(default_factory=ReplyKeywords)
     llm: LLMConfig = field(default_factory=LLMConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
+    discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
     domain_profile: DomainProfile = field(default_factory=DomainProfile)
     resume_path: str = ""
     resume_variants: Dict[str, str] = field(default_factory=dict)
@@ -234,6 +245,7 @@ def load_config(config_path: str = "config.yaml") -> Config:
     llm_data = data.get("llm", {})
     llm = _build_dataclass(LLMConfig, llm_data)
     database = _build_dataclass(DatabaseConfig, data.get("database", {}))
+    discovery = _build_dataclass(DiscoveryConfig, data.get("discovery", {}))
     domain_profile = _build_dataclass(DomainProfile, data.get("domain_profile", {}))
     if "generic_team_words" not in llm_data:
         llm.generic_team_words = list(domain_profile.generic_team_words)
@@ -249,6 +261,7 @@ def load_config(config_path: str = "config.yaml") -> Config:
         reply_keywords=reply_keywords,
         llm=llm,
         database=database,
+        discovery=discovery,
         domain_profile=domain_profile,
         resume_path=data.get("resume_path", ""),
         resume_variants=data.get("resume_variants", {}),

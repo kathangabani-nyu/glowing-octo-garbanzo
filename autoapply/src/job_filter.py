@@ -96,6 +96,35 @@ def score_job(config: Config, job_row, company_row) -> ScoreResult:
         reasons.append(f"title excluded: {', '.join(excluded[:3])}")
         return ScoreResult(score=0, status="reject", reasons=reasons)
 
+    # ── Hard reject: non-US locations ──
+    if config.job_targets.us_only:
+        loc_reject = _contains_any(
+            " ".join([title, location]),
+            config.job_targets.location_reject_keywords,
+        )
+        if loc_reject:
+            reasons.append(f"non-US location: {', '.join(loc_reject[:3])}")
+            return ScoreResult(score=0, status="reject", reasons=reasons)
+
+        # If location is set but contains no US signals, reject
+        if location:
+            us_signals = [
+                "united states", "usa", "us ", "u.s.",
+                "new york", "nyc", "san francisco", "sf",
+                "los angeles", "la", "seattle", "austin",
+                "boston", "chicago", "denver", "atlanta",
+                "miami", "dallas", "houston", "dc",
+                "washington", "philadelphia", "portland",
+                "san diego", "san jose", "raleigh",
+                "remote", "anywhere",
+                "ca", "ny", "tx", "wa", "ma", "il", "co",
+                "ga", "fl", "pa", "or", "nc", "va", "md",
+            ]
+            loc_lower = _normalize(location)
+            if not any(s in loc_lower for s in us_signals):
+                reasons.append(f"location appears non-US: {location[:60]}")
+                return ScoreResult(score=0, status="reject", reasons=reasons)
+
     # ── Gate: require at least a title keyword match OR skill match ──
     # Without this, a random role at a high-priority company can qualify
     # purely on company bonus + location/remote match

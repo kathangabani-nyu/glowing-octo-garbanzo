@@ -128,3 +128,11 @@ def check_catch_all(domain: str, timeout: int = 10, sender_email: str = "verify@
     fake_email = f"xzq98random7fake42@{domain}"
     result = verify_email(fake_email, timeout=timeout, sender_email=sender_email)
     return result.status == "verified"
+
+
+def update_pattern_from_outcome(db, email: str, success: bool):
+    """Learn from downstream delivery outcomes for domains with cached patterns."""
+    if not email or "@" not in email:
+        return
+    domain = email.split("@", 1)[1].lower()
+    db.record_pattern_outcome(domain, success)

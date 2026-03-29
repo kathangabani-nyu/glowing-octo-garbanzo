@@ -1,16 +1,17 @@
-Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+Hi {{ greeting_name }},
 
-I wanted to reach out about the {{ job_title }} position at {{ company_name }} because the role immediately stood out to me.
-{% if team_or_product %}The mission and scope of the {{ team_or_product }} team are especially compelling to me.{% elif company_blurb %}I was also drawn to the opportunity because {{ company_blurb|lower }}.{% endif %}
+I wanted to reach out about the {{ job_title }} position at {{ company_name }} — it immediately stood out because it's rare to find a role that combines this level of technical depth with real-world impact.
 
-I am especially motivated by work that combines strong technical depth with practical impact, and I am looking for opportunities where I can keep growing while contributing carefully and meaningfully from the start.
-{% if key_technology %}My recent research and implementation work has included {{ key_technology }}, and I enjoy moving between investigation, experimentation, and building things that can actually be used and evaluated in practice.{% else %}My recent work has involved research-oriented problem solving, implementation, and translating technical ideas into work that can be tested and built on in a practical way.{% endif %}
+I'm finishing my Master's in Computer Engineering at NYU (graduating May 2026), and my work has consistently sat at the intersection of research and engineering — taking ideas from investigation and experimentation through to working implementations that can actually be evaluated, tested, and improved on. I've built end-to-end ML pipelines, designed prototype systems from scratch, and worked across both the research and production side of applied AI.
 
-If helpful, I would be glad to share more context on my background and a few projects that feel especially relevant to this role.
+{% if team_or_product %}The mission and scope of {{ team_or_product }} felt especially compelling — it's the kind of problem space where careful thinking and strong technical execution both matter.{% elif company_blurb %}I was also excited by the chance to work with a team that {{ company_blurb|lower }}.{% endif %}
+
+{% if key_technology %}My recent work has included {{ key_technology }}, and I enjoy moving between investigation, experimentation, and implementation while staying grounded in measurable outcomes.{% else %}My recent work has involved research-oriented problem solving — designing experiments, building prototype systems, and translating technical ideas into something concrete enough to test, iterate on, and ship.{% endif %}
+
+I've attached my resume for reference. You can also explore my work here:
+GitHub: https://github.com/kathangabani-nyu
 
 Best,
 {{ sender_name }}
 {{ sender_email }}
-{% if sender_signature %}
-{{ sender_signature }}
-{% endif %}
+{% if sender_signature %}{{ sender_signature }}{% endif %}

@@ -1,10 +1,10 @@
-Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+Hi {{ greeting_name }},
 
 I saw the {{ job_title }} opening at {{ company_name }} and wanted to introduce myself because the role immediately caught my interest.
-{% if team_or_product %}The opportunity to contribute around {{ team_or_product }} especially stood out to me.{% elif company_blurb %}I was especially interested because {{ company_blurb|lower }}.{% endif %}
+{% if team_or_product %}The opportunity to contribute around {{ team_or_product }} especially stood out to me.{% elif company_blurb %}I was especially interested in the role because of the chance to work with a team that {{ company_blurb|lower }}.{% endif %}
 
 I am looking for opportunities where I can build strong market judgment, communicate clearly, and support thoughtful execution in fast-moving environments.
-{% if key_technology %}My recent work has included a lot of hands-on analysis involving {{ key_technology }}, and I enjoy turning complex information into concise, usable insight.{% else %}My recent work has focused on analytical rigor, structured communication, and understanding how market context shapes financing decisions, which is why this role felt like a strong fit.{% endif %}
+{% if key_technology %}My recent work has included hands-on analysis involving {{ key_technology }}, and I enjoy turning complex information into concise, usable insight.{% else %}My recent work has focused on analytical rigor, structured communication, and understanding how market context shapes financing decisions, which is why this role felt like a strong fit.{% endif %}
 
 If useful, I would be happy to share more about my background and why I would be excited about this team.
 

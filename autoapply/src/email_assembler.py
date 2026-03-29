@@ -24,6 +24,12 @@ from src.utils import get_logger
 
 logger = get_logger("email_assembler")
 
+GENERIC_CONTACT_WORDS = {
+    "team", "platform", "recruiting", "recruiter", "recruitment",
+    "talent", "people", "careers", "career", "jobs", "hiring",
+    "hr", "support", "admin", "operations", "ops",
+}
+
 def _classify_role_bucket(job_title: str, domain_profile: DomainProfile) -> str:
     """Classify a job title into a role bucket for template selection."""
     title_lower = job_title.lower()
@@ -79,6 +85,7 @@ def _compute_quality_score(
         "public_exact": 35,
         "public_generic_inbox": 25,
         "pattern_verified": 30,
+        "catch_all_pattern_match": 20,
         "pattern_inferred": 15,
         "catch_all_guess": 10,
         "generic_guess": 5,
@@ -123,6 +130,30 @@ def _determine_review_reason(
             return "weak_personalization"
         return "borderline_fit"
     return None
+
+
+def _select_greeting_name(contact_name: Optional[str], company_name: str = "") -> str:
+    """Choose a polite greeting target from the best available contact info."""
+    cleaned = (contact_name or "").strip()
+    if cleaned:
+        parts = [part for part in cleaned.split() if part]
+        normalized_parts = [
+            re.sub(r"[^A-Za-z]", "", part).lower()
+            for part in parts
+        ]
+        normalized_parts = [part for part in normalized_parts if part]
+
+        if normalized_parts and not any(part in GENERIC_CONTACT_WORDS for part in normalized_parts):
+            if len(parts) >= 2:
+                return parts[0]
+            return cleaned
+
+        return cleaned
+
+    company_clean = (company_name or "").strip()
+    if company_clean:
+        return f"{company_clean} team"
+    return "there"
 
 
 def _extract_details(
@@ -217,8 +248,11 @@ def _render_email(
                 continue
 
     # Built-in fallback template
-    contact_name = context.get("contact_name")
-    greeting = f"Hi {contact_name.split()[0]}," if contact_name else "Hi,"
+    greeting_name = context.get("greeting_name") or _select_greeting_name(
+        context.get("contact_name"),
+        context.get("company_name", ""),
+    )
+    greeting = f"Hi {greeting_name},"
 
     team_line = ""
     if context.get("team_or_product"):
@@ -278,6 +312,16 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
     messages_created = 0
     qualified_jobs = db.get_qualified_jobs("qualified_auto") + db.get_qualified_jobs("qualified_review")
 
+    # Sort by qualification score descending — best jobs first so each
+    # person gets matched to their strongest-fit role.
+    qualified_jobs.sort(
+        key=lambda j: j["qualification_score"] or 0, reverse=True,
+    )
+
+    # Track person_ids we've already assembled a message for in THIS run.
+    # One person should only ever receive ONE initial email, period.
+    persons_assembled_this_run = set()
+
     for job in qualified_jobs:
         company_id = job["company_id"]
         job_id = job["id"]
@@ -291,9 +335,26 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
             continue
 
         # Get best contact
-        contact = db.get_best_contact(company_id)
+        contact = db.get_best_contact(company_id, job_id=job_id)
         if not contact:
             logger.debug(f"No contact for job {job_id} at company {company_id}")
+            continue
+
+        # --- Per-person dedup: one email per person, ever ---
+        # 1) Already assembled for this person in this batch?
+        if contact["id"] in persons_assembled_this_run:
+            logger.debug(
+                f"Skipping job {job_id} — already assembled a message for "
+                f"person {contact['id']} ({contact['email']}) this run"
+            )
+            continue
+
+        # 2) Already have an unsent/pending/ready message for this person in DB?
+        if db.check_person_has_pending_message(contact["id"]):
+            logger.debug(
+                f"Skipping job {job_id} — person {contact['id']} ({contact['email']}) "
+                f"already has a pending message in the queue"
+            )
             continue
 
         # Check cooldowns
@@ -353,6 +414,10 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
             "sender_email": config.sender.email,
             "sender_signature": config.sender.signature,
             "contact_name": contact["name"],
+            "greeting_name": _select_greeting_name(
+                contact["name"],
+                company["name"] if company else "",
+            ),
             "contact_email": contact["email"],
             "company_name": company["name"] if company else "",
             "company_domain": company["domain"] if company else "",
@@ -407,6 +472,9 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
                 message_id=message_id, queue_reason=review_reason,
                 confidence_tier=contact["confidence_tier"],
             )
+
+        # Mark this person as handled — no more emails to them this run
+        persons_assembled_this_run.add(contact["id"])
 
         messages_created += 1
         tier = contact["confidence_tier"]

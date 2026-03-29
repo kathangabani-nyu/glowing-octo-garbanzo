@@ -26,9 +26,10 @@ def generate_permutations(first_name: str, last_name: str, domain: str) -> List[
     """
     Generate email permutations ordered by prevalence.
 
-    Supports 8 patterns:
+    Supports 12 patterns:
         first.last, firstlast, first, flast, f.last,
-        first_last, firstl, last.first
+        first_last, firstl, last.first, last, first-last,
+        last_first, lfirst
 
     Args:
         first_name: Person's first name
@@ -73,6 +74,10 @@ def generate_permutations(first_name: str, last_name: str, domain: str) -> List[
     _add(f"{first}_{last}")           # first_last
     _add(f"{first}{l_initial}")       # firstl
     _add(f"{last}.{first}")           # last.first
+    _add(last)                        # last
+    _add(f"{first}-{last}")           # first-last
+    _add(f"{last}_{first}")           # last_first
+    _add(f"{l_initial}{first}")       # lfirst
 
     # Dehyphenated variants (if names contain hyphens)
     if "-" in first or "-" in last:
@@ -102,6 +107,10 @@ def match_pattern(email: str, first_name: str, last_name: str) -> str | None:
         f"{first}_{last}": "first_last",
         f"{first}{last[0]}": "firstl",
         f"{last}.{first}": "last.first",
+        last: "last",
+        f"{first}-{last}": "first-last",
+        f"{last}_{first}": "last_first",
+        f"{last[0]}{first}": "lfirst",
     }
 
     return patterns.get(local)
@@ -121,6 +130,10 @@ def apply_pattern(pattern: str, first_name: str, last_name: str, domain: str) ->
         "first_last": f"{first}_{last}",
         "firstl": f"{first}{last[0]}",
         "last.first": f"{last}.{first}",
+        "last": last,
+        "first-last": f"{first}-{last}",
+        "last_first": f"{last}_{first}",
+        "lfirst": f"{last[0]}{first}",
     }
 
     local = templates.get(pattern)

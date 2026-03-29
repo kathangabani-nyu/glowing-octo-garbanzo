@@ -21,7 +21,7 @@ def main():
     parser.add_argument(
         "--sources",
         default="all",
-        help="Comma-separated sources: yc,builtin or all",
+        help="Comma-separated sources: yc,builtin,hn or all",
     )
     parser.add_argument(
         "--dry-run",
@@ -40,7 +40,7 @@ def main():
     )
     parser.add_argument(
         "--cities",
-        default="nyc,sf,chicago,boston,la",
+        default="",
         help="Comma-separated BuiltIn city keys",
     )
     args = parser.parse_args()
@@ -59,7 +59,7 @@ def main():
             db,
             sources=[part.strip() for part in args.sources.split(",") if part.strip()],
             dry_run=args.dry_run,
-            cities=[part.strip() for part in args.cities.split(",") if part.strip()],
+            cities=[part.strip() for part in args.cities.split(",") if part.strip()] or config.discovery.builtin_cities,
             promote_only=args.promote,
         )
     finally:

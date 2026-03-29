@@ -1,16 +1,17 @@
-Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+Hi {{ greeting_name }},
 
-I came across the {{ job_title }} role at {{ company_name }} and wanted to reach out because it genuinely caught my interest.
-{% if team_or_product %}I was especially interested in the opportunity to contribute to the {{ team_or_product }} team.{% elif company_blurb %}I was also drawn to the role because {{ company_blurb|lower }}.{% endif %}
+I wanted to reach out about the {{ job_title }} role at {{ company_name }} because it immediately stood out to me as a role that matches both my experience and the direction I want to take full-time.
 
-I am looking for opportunities where I can contribute thoughtfully, keep learning, and do strong technical work with a team that cares about real impact.
-{% if key_technology %}A meaningful part of my recent work has focused on {{ key_technology }}, and I would be excited to bring that experience into this kind of role.{% else %}A meaningful part of my recent work has involved building practical technical projects and learning quickly in unfamiliar areas, which is part of why this role appealed to me.{% endif %}
+I'm a Master's student in Computer Engineering at NYU, graduating in May 2026, and I'm currently looking for full-time opportunities. What caught my attention here is how closely this role lines up with the work I've already done and the skill set I've been building.
 
-If useful, I would be happy to share a few relevant examples of my work and learn more about what you are looking for in the role.
+{% if team_or_product %}The opportunity to contribute to {{ team_or_product }} especially interested me.{% elif company_blurb %}I was also excited by the chance to work with a team that {{ company_blurb|lower }}.{% endif %}
+
+{% if key_technology %}Recently, a meaningful part of my work has involved {{ key_technology }}, and I've really enjoyed applying that experience to real, production-oriented problems.{% else %}Recently, a meaningful part of my work has involved building practical projects, solving technical problems end to end, and getting up to speed quickly in unfamiliar areas.{% endif %}
+
+I've attached my resume for reference. You can also find my projects and relevant work here:
+GitHub: https://github.com/kathangabani-nyu
 
 Best,
 {{ sender_name }}
 {{ sender_email }}
-{% if sender_signature %}
-{{ sender_signature }}
-{% endif %}
+{% if sender_signature %}{{ sender_signature }}{% endif %}

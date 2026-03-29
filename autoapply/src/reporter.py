@@ -44,6 +44,17 @@ class CompanyResponseTrend:
 
 
 @dataclass
+class SourceFunnelRow:
+    discovery_source: str
+    companies: int
+    jobs: int
+    qualified: int
+    contacts: int
+    sent: int
+    replies: int
+
+
+@dataclass
 class ReportSnapshot:
     metric_date: str
     jobs_discovered: int = 0
@@ -68,6 +79,7 @@ class ReportSnapshot:
     trend_7d: TrendWindow = field(default_factory=lambda: TrendWindow(days=7))
     trend_30d: TrendWindow = field(default_factory=lambda: TrendWindow(days=30))
     top_responding_companies_30d: List[CompanyResponseTrend] = field(default_factory=list)
+    source_funnel: List[SourceFunnelRow] = field(default_factory=list)
 
 
 def _safe_rate(numerator: int, denominator: int) -> float:
@@ -183,6 +195,18 @@ def build_snapshot(db: Database, metric_date: Optional[str] = None) -> ReportSna
     snapshot.top_responding_companies_30d = _get_top_responding_companies(
         db, 30, metric_date=metric_date
     )
+    snapshot.source_funnel = [
+        SourceFunnelRow(
+            discovery_source=row["discovery_source"],
+            companies=row["companies"],
+            jobs=row["jobs"],
+            qualified=row["qualified"],
+            contacts=row["contacts"],
+            sent=row["sent"],
+            replies=row["replies"],
+        )
+        for row in db.get_pipeline_funnel()
+    ]
 
     return snapshot
 
@@ -195,6 +219,19 @@ def _format_top_companies(items: List[CompanyResponseTrend]) -> str:
     if not items:
         return "none"
     return ", ".join(f"{item.company_name}({item.replies})" for item in items)
+
+
+def _format_source_funnel(items: List[SourceFunnelRow]) -> str:
+    if not items:
+        return "none"
+    return ", ".join(
+        (
+            f"{item.discovery_source}: companies={item.companies} "
+            f"jobs={item.jobs} qualified={item.qualified} contacts={item.contacts} "
+            f"sent={item.sent} replies={item.replies}"
+        )
+        for item in items
+    )
 
 
 def render_report(snapshot: ReportSnapshot) -> str:
@@ -216,6 +253,7 @@ def render_report(snapshot: ReportSnapshot) -> str:
         f"  7d  reply_rate={_format_rate(snapshot.trend_7d.reply_rate)}  bounce_rate={_format_rate(snapshot.trend_7d.bounce_rate)}  discover_to_send={_format_rate(snapshot.trend_7d.discovery_to_send_rate)}",
         f"  30d reply_rate={_format_rate(snapshot.trend_30d.reply_rate)}  bounce_rate={_format_rate(snapshot.trend_30d.bounce_rate)}  discover_to_send={_format_rate(snapshot.trend_30d.discovery_to_send_rate)}",
         f"  top responding companies (30d): {_format_top_companies(snapshot.top_responding_companies_30d)}",
+        f"  source funnel: {_format_source_funnel(snapshot.source_funnel)}",
         "Safety:",
         f"  rolling_bounce_rate={_format_rate(snapshot.bounce_rate)}",
     ]
@@ -277,6 +315,18 @@ def snapshot_to_dict(snapshot: ReportSnapshot) -> Dict[str, object]:
             {"company_name": item.company_name, "replies": item.replies}
             for item in snapshot.top_responding_companies_30d
         ],
+        "source_funnel": [
+            {
+                "discovery_source": item.discovery_source,
+                "companies": item.companies,
+                "jobs": item.jobs,
+                "qualified": item.qualified,
+                "contacts": item.contacts,
+                "sent": item.sent,
+                "replies": item.replies,
+            }
+            for item in snapshot.source_funnel
+        ],
     }
 
 
@@ -305,6 +355,7 @@ def render_markdown_report(snapshot: ReportSnapshot) -> str:
         f"- 7d: reply `{_format_rate(snapshot.trend_7d.reply_rate)}`, bounce `{_format_rate(snapshot.trend_7d.bounce_rate)}`, discovery->send `{_format_rate(snapshot.trend_7d.discovery_to_send_rate)}`",
         f"- 30d: reply `{_format_rate(snapshot.trend_30d.reply_rate)}`, bounce `{_format_rate(snapshot.trend_30d.bounce_rate)}`, discovery->send `{_format_rate(snapshot.trend_30d.discovery_to_send_rate)}`",
         f"- Top responding companies (30d): {_format_top_companies(snapshot.top_responding_companies_30d)}",
+        f"- Source funnel: {_format_source_funnel(snapshot.source_funnel)}",
         "",
         "## Safety",
         f"- Rolling bounce rate: `{_format_rate(snapshot.bounce_rate)}`",

@@ -29,6 +29,8 @@ logger = get_logger("company_discoverer")
 
 YC_HOME_URL = "https://www.workatastartup.com/"
 YC_COMPANY_URL = "https://www.workatastartup.com/companies/{slug}"
+HN_SEARCH_URL = "https://hn.algolia.com/api/v1/search"
+HN_ITEM_URL = "https://hn.algolia.com/api/v1/items/{story_id}"
 
 BUILTIN_CITY_URLS = {
     "nyc": "https://www.builtinnyc.com",
@@ -57,6 +59,14 @@ SOCIAL_HOST_MARKERS = (
     "glassdoor.com",
 )
 
+NOISE_HOST_MARKERS = (
+    "forbes.com",
+    "medium.com",
+    "substack.com",
+    "notion.site",
+    "docs.google.com",
+)
+
 FINANCE_KEYWORDS = (
     "fintech",
     "financial",
@@ -74,11 +84,17 @@ FINANCE_KEYWORDS = (
     "brokerage",
 )
 
+EMAIL_REGEX = re.compile(
+    r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}",
+    re.IGNORECASE,
+)
+
 BUILTIN_LIST_PAGES = 3
 
 _yc_limiter = RateLimiter(rate=0.5, capacity=1)
 _builtin_limiter = RateLimiter(rate=(1 / 3), capacity=1)
 _ats_limiter = RateLimiter(rate=0.5, capacity=1)
+_hn_limiter = RateLimiter(rate=1, capacity=2)
 
 
 @dataclass
@@ -87,6 +103,11 @@ class RawCompany:
     domain: str
     source: str
     source_url: str
+    description: Optional[str] = None
+    industry: Optional[str] = None
+    headcount_range: Optional[str] = None
+    hq_location: Optional[str] = None
+    tech_stack: Optional[str] = None
 
 
 @dataclass
@@ -119,6 +140,13 @@ def _get_response(url: str, timeout: int = 20) -> requests.Response:
 @retry(max_attempts=2, base_delay=1.0, exceptions=(requests.RequestException,))
 def _post_json(url: str, body: Optional[dict] = None, timeout: int = 20) -> dict:
     response = requests.post(url, headers=REQUEST_HEADERS, json=body or {}, timeout=timeout)
+    response.raise_for_status()
+    return response.json()
+
+
+@retry(max_attempts=2, base_delay=1.0, exceptions=(requests.RequestException,))
+def _get_json(url: str, params: Optional[dict] = None, timeout: int = 20) -> dict:
+    response = requests.get(url, headers=REQUEST_HEADERS, params=params or {}, timeout=timeout)
     response.raise_for_status()
     return response.json()
 
@@ -198,6 +226,184 @@ def _extract_external_company_url(profile_html: str) -> Optional[str]:
             return href
         candidates.append(href)
     return candidates[0] if candidates else None
+
+
+def _extract_builtin_field(profile_html: str, labels: Sequence[str]) -> Optional[str]:
+    soup = BeautifulSoup(profile_html, "html.parser")
+    for label in labels:
+        label_node = soup.find(string=re.compile(rf"^\s*{re.escape(label)}\s*$", re.I))
+        if not label_node:
+            continue
+        parent = label_node.parent
+        if not parent:
+            continue
+        sibling = parent.find_next_sibling()
+        if sibling:
+            value = _clean_text(sibling.get_text(" ", strip=True))
+            if value:
+                return value
+
+    text = _clean_text(soup.get_text(" ", strip=True))
+    for label in labels:
+        match = re.search(
+            rf"{re.escape(label)}\s*[:\-]?\s*([A-Za-z0-9 ,&+/().-]{{2,80}})",
+            text,
+            re.IGNORECASE,
+        )
+        if match:
+            return _clean_text(match.group(1))
+    return None
+
+
+def _extract_builtin_metadata(profile_html: str) -> Dict[str, Optional[str]]:
+    soup = BeautifulSoup(profile_html, "html.parser")
+    description_el = soup.select_one("meta[name='description']")
+    description = description_el.get("content", "").strip() if description_el else None
+    return {
+        "industry": _extract_builtin_field(profile_html, ["Industry"]),
+        "headcount_range": _extract_builtin_field(profile_html, ["Company Size", "Size"]),
+        "hq_location": _extract_builtin_field(profile_html, ["Location", "Headquarters"]),
+        "description": description or None,
+        "tech_stack": None,
+    }
+
+
+def _hn_has_discovery_keyword(text: str, domain_profile: DomainProfile) -> bool:
+    lowered = text.lower()
+    return any(keyword.lower() in lowered for keyword in domain_profile.discovery_keywords)
+
+
+def _extract_hn_company_name(comment_text: str) -> Optional[str]:
+    for line in comment_text.splitlines():
+        candidate = _clean_text(line)
+        if len(candidate) < 2 or len(candidate) > 120:
+            continue
+        if "http" in candidate.lower() or "www." in candidate.lower():
+            continue
+        candidate = re.split(r"\s+[|:-]\s+", candidate, maxsplit=1)[0].strip()
+        candidate = re.sub(r"^\*+|\*+$", "", candidate).strip()
+        if "/" in candidate or ".com" in candidate.lower():
+            continue
+        if candidate and len(candidate.split()) <= 4:
+            return candidate
+    return None
+
+
+def _extract_hn_contact_name(comment_text: str) -> Optional[str]:
+    patterns = [
+        re.compile(r"(?:contact|reach out to|email)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)"),
+        re.compile(r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*[\-–|]\s*(?:recruiter|hiring|talent|people)", re.I),
+    ]
+    for pattern in patterns:
+        match = pattern.search(comment_text)
+        if match:
+            return _clean_text(match.group(1))
+    return None
+
+
+def discover_from_hn_hiring(config: Config, db: Database, persist_contacts: bool = True) -> List[RawCompany]:
+    _hn_limiter.acquire()
+    search_payload = _get_json(
+        HN_SEARCH_URL,
+        params={
+            "query": '"who is hiring"',
+            "tags": "story,ask_hn",
+            "hitsPerPage": 3,
+        },
+    )
+    hits = search_payload.get("hits", [])
+    if not hits:
+        return []
+
+    hits = sorted(hits, key=lambda item: item.get("created_at_i", 0), reverse=True)
+    story_id = hits[0].get("objectID")
+    if not story_id:
+        return []
+
+    _hn_limiter.acquire()
+    item_payload = _get_json(HN_ITEM_URL.format(story_id=story_id))
+    discovered: Dict[str, RawCompany] = {}
+    inserted = 0
+
+    for child in item_payload.get("children", []):
+        if inserted >= config.discovery.hn_max_per_run:
+            break
+
+        raw_html = child.get("text") or ""
+        comment_text = BeautifulSoup(raw_html, "html.parser").get_text("\n", strip=True)
+        if len(comment_text) < 50:
+            continue
+        if not _hn_has_discovery_keyword(comment_text, config.domain_profile):
+            continue
+        if not _matches_domain_profile(comment_text, config.domain_profile):
+            continue
+
+        soup = BeautifulSoup(raw_html, "html.parser")
+        candidate_urls = []
+        for anchor in soup.find_all("a", href=True):
+            candidate_urls.append(anchor["href"])
+        for url in re.findall(r"https?://[^\s<>()]+", comment_text):
+            candidate_urls.append(url)
+
+        domain = None
+        for url in candidate_urls:
+            normalized = _normalize_domain(url)
+            if not normalized or _is_ats_host(normalized):
+                continue
+            if any(marker in normalized for marker in SOCIAL_HOST_MARKERS):
+                continue
+            if any(marker in normalized for marker in NOISE_HOST_MARKERS):
+                continue
+            domain = normalized
+            break
+        if not domain:
+            continue
+        if db.get_company_by_domain(domain) or db.get_discovered_company_by_domain(domain):
+            continue
+
+        company_name = _extract_hn_company_name(comment_text)
+        if not company_name:
+            continue
+
+        source_url = f"https://news.ycombinator.com/item?id={child.get('id')}"
+        discovered[domain] = RawCompany(
+            name=company_name,
+            domain=domain,
+            source="hn",
+            source_url=source_url,
+            description=_clean_text(comment_text[:300]),
+        )
+
+        emails = [
+            email.lower() for email in EMAIL_REGEX.findall(comment_text)
+            if email.lower().endswith(f"@{domain}")
+        ]
+        contact_name = _extract_hn_contact_name(comment_text)
+        if persist_contacts:
+            for email in emails[:2]:
+                db.insert_discovered_contact(
+                    domain=domain,
+                    name=contact_name,
+                    email=email,
+                    role="recruiting",
+                    source="hn",
+                    source_url=source_url,
+                    evidence_snippet=_clean_text(comment_text[:250]),
+                )
+            if contact_name and not emails:
+                db.insert_discovered_contact(
+                    domain=domain,
+                    name=contact_name,
+                    email=None,
+                    role="recruiting",
+                    source="hn",
+                    source_url=source_url,
+                    evidence_snippet=_clean_text(comment_text[:250]),
+                )
+
+        inserted += 1
+
+    return list(discovered.values())
 
 
 def _validate_company_domain(domain: str, timeout: int = 10) -> bool:
@@ -405,6 +611,18 @@ def discover_from_yc(domain_profile: DomainProfile) -> List[RawCompany]:
             domain=domain,
             source="yc",
             source_url=company_page,
+            description=_clean_text(company_data.get("description") or "") or None,
+            industry=_clean_text(company_data.get("industry") or "") or None,
+            headcount_range=_clean_text(
+                str(
+                    company_data.get("teamSize")
+                    or company_data.get("teamSizeLabel")
+                    or company_data.get("teamSizeRange")
+                    or ""
+                )
+            ) or None,
+            hq_location=_clean_text(company_data.get("location") or "") or None,
+            tech_stack=None,
         )
 
     return list(companies.values())
@@ -466,11 +684,18 @@ def discover_from_builtin(cities: Sequence[str], domain_profile: DomainProfile) 
                 if not _matches_domain_profile(f"{card_text} {profile_text}", domain_profile):
                     continue
 
+                metadata = _extract_builtin_metadata(profile_html)
+
                 discovered[domain] = RawCompany(
                     name=_clean_text(name_el.get_text(" ", strip=True)),
                     domain=domain,
                     source=f"builtin_{city_key}",
                     source_url=profile_url,
+                    description=metadata["description"],
+                    industry=metadata["industry"],
+                    headcount_range=metadata["headcount_range"],
+                    hq_location=metadata["hq_location"],
+                    tech_stack=metadata["tech_stack"],
                 )
 
     return list(discovered.values())
@@ -496,8 +721,28 @@ def _dedupe_new_companies(db: Database, companies: Sequence[RawCompany]) -> List
             domain=domain,
             source=company.source,
             source_url=company.source_url,
+            description=company.description,
+            industry=company.industry,
+            headcount_range=company.headcount_range,
+            hq_location=company.hq_location,
+            tech_stack=company.tech_stack,
         )
     return list(unique.values())
+
+
+def _persist_discovered_company(db: Database, company: RawCompany, priority: int) -> Optional[int]:
+    return db.insert_discovered_company(
+        name=company.name,
+        domain=company.domain,
+        source=company.source,
+        source_url=company.source_url,
+        priority=priority,
+        description=company.description,
+        industry=company.industry,
+        headcount_range=company.headcount_range,
+        hq_location=company.hq_location,
+        tech_stack=company.tech_stack,
+    )
 
 
 def _promote_ready_companies(db: Database, dry_run: bool = False) -> int:
@@ -523,8 +768,10 @@ def run(config: Config, db: Database, *, sources: Sequence[str], dry_run: bool =
     normalized_sources = [source.strip().lower() for source in sources if source.strip()]
     if not normalized_sources or "all" in normalized_sources:
         normalized_sources = ["yc", "builtin"]
+        if config.discovery.hn_enabled:
+            normalized_sources.append("hn")
 
-    builtin_cities = list(cities or ["nyc", "sf", "chicago", "boston", "la"])
+    builtin_cities = list(cities or config.discovery.builtin_cities)
 
     if promote_only:
         summary.promoted = _promote_ready_companies(db, dry_run=dry_run)
@@ -553,13 +800,7 @@ def run(config: Config, db: Database, *, sources: Sequence[str], dry_run: bool =
                         summary.detected += 1
                 continue
             for company in new_companies:
-                inserted = db.insert_discovered_company(
-                    name=company.name,
-                    domain=company.domain,
-                    source=company.source,
-                    source_url=company.source_url,
-                    priority=2,
-                )
+                inserted = _persist_discovered_company(db, company, priority=2)
                 if inserted:
                     summary.inserted += 1
             db.log_scrape(source_name, source_url, len(raw_companies), _hash_companies(raw_companies))
@@ -593,16 +834,38 @@ def run(config: Config, db: Database, *, sources: Sequence[str], dry_run: bool =
                             summary.detected += 1
                     continue
                 for company in new_companies:
-                    inserted = db.insert_discovered_company(
-                        name=company.name,
-                        domain=company.domain,
-                        source=company.source,
-                        source_url=company.source_url,
-                        priority=3,
-                    )
+                    inserted = _persist_discovered_company(db, company, priority=3)
                     if inserted:
                         summary.inserted += 1
                 db.log_scrape(source_label, source_url, len(raw_companies), _hash_companies(raw_companies))
+            continue
+
+        if source_name == "hn":
+            source_url = "https://news.ycombinator.com/ask"
+            if _is_recent(db.get_last_scrape(source_name, source_url), freshness_days):
+                logger.info("Skipping HN hiring thread — scraped within last %d days", freshness_days)
+                summary.skipped_fresh += 1
+                continue
+            raw_companies = discover_from_hn_hiring(config, db, persist_contacts=not dry_run)
+            summary.scraped += len(raw_companies)
+            new_companies = _dedupe_new_companies(db, raw_companies)
+            if dry_run:
+                for company in new_companies:
+                    info = detect_ats(company.domain)
+                    summary.dry_run_companies.append({
+                        "name": company.name,
+                        "domain": company.domain,
+                        "source": company.source,
+                        "ats": info.ats_type if info else None,
+                    })
+                    if info:
+                        summary.detected += 1
+                continue
+            for company in new_companies:
+                inserted = _persist_discovered_company(db, company, priority=2)
+                if inserted:
+                    summary.inserted += 1
+            db.log_scrape(source_name, source_url, len(raw_companies), _hash_companies(raw_companies))
 
     if dry_run:
         return summary

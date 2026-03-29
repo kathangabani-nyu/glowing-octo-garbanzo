@@ -1,16 +1,17 @@
-Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+Hi {{ greeting_name }},
 
-I saw the {{ job_title }} role at {{ company_name }} and wanted to reach out because it feels closely aligned with the kind of work I am excited to keep doing.
-{% if team_or_product %}I was especially interested in the opportunity to contribute to the {{ team_or_product }} team.{% elif company_blurb %}I was also drawn to the role because {{ company_blurb|lower }}.{% endif %}
+I saw the {{ job_title }} role at {{ company_name }} and wanted to reach out — it's exactly the kind of applied ML work I've been building toward and want to do full-time.
 
-I am particularly interested in roles where I can combine strong engineering fundamentals with practical machine learning work that has a clear product or research impact.
-{% if key_technology %}Recently, a meaningful part of my work has involved building and experimenting with {{ key_technology }}, and I would be excited to bring that experience into a team shipping thoughtful ML systems.{% else %}Recently, a meaningful part of my work has involved applied ML development, experimentation, and turning ideas into practical systems that are useful outside of a demo environment.{% endif %}
+I'm a Master's student in Computer Engineering at NYU, graduating in May 2026, with a strong focus on applied machine learning and production ML systems. At my most recent internship, I worked as a Fullstack AI/ML Engineer where I built and deployed end-to-end ML pipelines — from model experimentation to containerized production services handling real-time inference at scale. I've also worked extensively with PyTorch, designed training pipelines, and built systems that bridge the gap between research prototypes and reliable production deployments.
 
-If useful, I would be happy to share a few concrete projects and a bit more context on why I think I could contribute well in this role.
+{% if team_or_product %}The chance to contribute to {{ team_or_product }} especially stood out — it sits right at the intersection of strong engineering and meaningful ML impact.{% elif company_blurb %}I was also drawn to the role by the opportunity to work with a team that {{ company_blurb|lower }}.{% endif %}
+
+{% if key_technology %}A meaningful part of my recent work has involved {{ key_technology }}, and I really enjoy the full arc — moving from experimentation and prototyping into systems that are robust enough for production and can actually be improved over time.{% else %}What I enjoy most is the full arc — going from experimentation and prototyping all the way to production systems that are reliable, maintainable, and actually useful outside of a notebook.{% endif %}
+
+I've attached my resume for reference. You can also find my ML projects here:
+GitHub: https://github.com/kathangabani-nyu
 
 Best,
 {{ sender_name }}
 {{ sender_email }}
-{% if sender_signature %}
-{{ sender_signature }}
-{% endif %}
+{% if sender_signature %}{{ sender_signature }}{% endif %}

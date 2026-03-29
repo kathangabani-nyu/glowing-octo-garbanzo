@@ -31,6 +31,8 @@ job_targets:
     - "intern"
     - "senior"
     - "director"
+    - "phd"
+    - "ph.d"
   skills:
     - "Python"
   seniority:
@@ -38,6 +40,8 @@ job_targets:
     - "new grad"
   locations: []
   remote_ok: true
+  us_only: false                  # Set true to reject non-US job locations
+  location_reject_keywords: []    # e.g. ["uk", "germany", "india", "emea", "apac"]
   min_experience_years: 0
   max_experience_years: 5
   visa_reject_keywords:
@@ -53,6 +57,17 @@ message_quality:
 
 database:
   path: "autoapply.db"
+
+discovery:
+  hn_enabled: true
+  hn_max_per_run: 50
+  github_trending_enabled: false
+  builtin_cities:
+    - "nyc"
+    - "sf"
+    - "chicago"
+    - "boston"
+    - "la"
 
 resume_path: "resumes/your_resume.pdf"
 

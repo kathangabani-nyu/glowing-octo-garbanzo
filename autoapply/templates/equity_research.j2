@@ -1,12 +1,12 @@
-Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+Hi {{ greeting_name }},
 
 I came across the {{ job_title }} role at {{ company_name }} and wanted to reach out because it strongly aligned with the kind of work I enjoy most.
-{% if team_or_product %}I was especially interested in the chance to contribute to work around {{ team_or_product }}.{% elif company_blurb %}What drew me in was that {{ company_blurb|lower }}.{% endif %}
+{% if team_or_product %}I was especially interested in the chance to contribute to work around {{ team_or_product }}.{% elif company_blurb %}What drew me in was the opportunity to support a business that {{ company_blurb|lower }}.{% endif %}
 
 I am looking for opportunities where I can combine curiosity, disciplined analysis, and clear writing to help turn information into strong investment-oriented insight.
 {% if key_technology %}A lot of my recent work has involved {{ key_technology }}, and I value being able to connect detailed analysis with a clear, well-supported point of view.{% else %}A lot of my recent work has focused on research, synthesis, and building clear views from messy information, which is a big part of why this role appealed to me.{% endif %}
 
-If helpful, I would be glad to share my background and a few examples of the work I think would be most relevant.
+If helpful, I would be glad to share more about my background and a few examples of work that feel especially relevant here.
 
 Best,
 {{ sender_name }}

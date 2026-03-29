@@ -33,6 +33,16 @@ TEAM_PATTERNS = (
     ),
 )
 
+JUNK_TEAM_PATTERNS = (
+    "via this link",
+    "via the link",
+    "click here",
+    "learn more",
+    "apply now",
+    "this link and",
+    "link below",
+)
+
 
 @dataclass
 class ExtractionResult:
@@ -50,6 +60,11 @@ def _clean_phrase(value: str) -> Optional[str]:
     if not cleaned:
         return None
     if len(cleaned) > 60:
+        return None
+    lowered = cleaned.lower()
+    if any(pattern in lowered for pattern in JUNK_TEAM_PATTERNS):
+        return None
+    if lowered in {"team", "platform", "group", "organization", "org"}:
         return None
     return cleaned
 

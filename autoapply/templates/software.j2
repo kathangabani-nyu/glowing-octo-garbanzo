@@ -1,16 +1,17 @@
-Hi{% if contact_name %} {{ contact_name.split()[0] }}{% endif %},
+Hi {{ greeting_name }},
 
-I came across the {{ job_title }} opening at {{ company_name }} and wanted to introduce myself because the role stood out to me right away.
-{% if team_or_product %}The chance to contribute to work around {{ team_or_product }} especially caught my attention.{% elif company_blurb %}What especially stood out to me is how {{ company_blurb|lower }}.{% endif %}
+I'm reaching out about the {{ job_title }} position at {{ company_name }} — it caught my attention because it aligns closely with the kind of engineering I've been doing and want to keep building on full-time.
 
-I am looking for opportunities where I can contribute thoughtfully, learn quickly, and grow within a strong engineering team.
-{% if key_technology %}A lot of my recent hands-on work has involved building with {{ key_technology }} in real projects, and I enjoy turning technical ideas into reliable, production-ready systems.{% else %}A lot of my recent work has focused on building reliable software systems, collaborating across the stack, and shipping work with care and attention to detail.{% endif %}
+I'm finishing my Master's in Computer Engineering at NYU (graduating May 2026). Most recently, I worked as a Fullstack AI/ML Engineer Intern where I led a production rewrite of an AI-driven video editing backend — building modular FastAPI services, implementing Redis-based async workflows, and deploying containerized services with CI/CD for low-latency, high-throughput systems. I've also designed RESTful APIs, built event-driven architectures, and worked extensively with AWS (Lambda, S3, SQS) in serverless environments.
 
-If it would be helpful, I would be glad to share a few relevant projects and explain why I think I could be a strong fit for this role.
+{% if team_or_product %}I was especially interested in the chance to contribute to {{ team_or_product }} — it's the kind of systems work where strong engineering fundamentals actually make a difference.{% elif company_blurb %}What stood out to me is the opportunity to work with a team that {{ company_blurb|lower }}.{% endif %}
+
+{% if key_technology %}A lot of my recent hands-on work has involved {{ key_technology }}, and I genuinely enjoy turning technical ideas into reliable, maintainable systems that real users depend on.{% else %}From a backend and systems perspective, I'm comfortable working across API design, async/queue-based processing, cloud deployments, and scalable infrastructure — and I care deeply about writing code that's correct, testable, and built to last.{% endif %}
+
+I've attached my resume for reference. You can also find my projects here:
+GitHub: https://github.com/kathangabani-nyu
 
 Best,
 {{ sender_name }}
 {{ sender_email }}
-{% if sender_signature %}
-{{ sender_signature }}
-{% endif %}
+{% if sender_signature %}{{ sender_signature }}{% endif %}

@@ -17,6 +17,7 @@ from typing import Optional, List, Tuple
 
 from src.db import Database
 from src.config import Config
+from src.smtp_verifier import update_pattern_from_outcome
 from src.utils import get_logger
 
 logger = get_logger("followup_manager")
@@ -217,6 +218,7 @@ def detect_replies(config: Config, db: Database, dry_run: bool = False) -> int:
         if classification == "bounce":
             db.add_suppression("email", msg["contact_email"], reason="bounced")
             db.increment_metric("bounces")
+            update_pattern_from_outcome(db, msg["contact_email"], success=False)
 
         # Handle referral — log for manual follow-up
         if classification == "referral":
@@ -224,6 +226,10 @@ def detect_replies(config: Config, db: Database, dry_run: bool = False) -> int:
                 f"REFERRAL from {msg['contact_email']} at {msg['company_name']}. "
                 f"Review the reply and consider a new target."
             )
+            update_pattern_from_outcome(db, msg["contact_email"], success=True)
+
+        if classification == "positive":
+            update_pattern_from_outcome(db, msg["contact_email"], success=True)
 
         db.increment_metric("replies_received")
         if classification == "positive":

@@ -11,7 +11,8 @@ from src.utils import get_logger
 
 logger = get_logger("db")
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+_CONTACT_SCOPE_ALL = object()
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -31,8 +32,15 @@ CREATE TABLE IF NOT EXISTS companies (
     workday_instance TEXT,
     workday_board TEXT,
     source TEXT NOT NULL DEFAULT 'watchlist',
+    discovery_source TEXT,
+    discovery_source_url TEXT,
     job_family_focus TEXT,
     notes TEXT,
+    industry TEXT,
+    headcount_range TEXT,
+    hq_location TEXT,
+    description TEXT,
+    tech_stack TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -61,6 +69,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE TABLE IF NOT EXISTS people (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     company_id INTEGER NOT NULL REFERENCES companies(id),
+    job_id INTEGER REFERENCES jobs(id),
     name TEXT,
     email TEXT,
     role TEXT,
@@ -99,6 +108,9 @@ CREATE TABLE IF NOT EXISTS domain_patterns (
     confidence TEXT NOT NULL,
     sample_count INTEGER NOT NULL DEFAULT 1,
     is_catch_all INTEGER NOT NULL DEFAULT 0,
+    success_count INTEGER NOT NULL DEFAULT 0,
+    failure_count INTEGER NOT NULL DEFAULT 0,
+    last_verified_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -126,10 +138,27 @@ CREATE TABLE IF NOT EXISTS discovered_companies (
     workday_instance TEXT,
     workday_board TEXT,
     priority INTEGER NOT NULL DEFAULT 5,
+    industry TEXT,
+    headcount_range TEXT,
+    hq_location TEXT,
+    description TEXT,
+    tech_stack TEXT,
     promoted INTEGER NOT NULL DEFAULT 0,
     dismissed INTEGER NOT NULL DEFAULT 0,
     discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
     ats_checked_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS discovered_contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    domain TEXT NOT NULL,
+    name TEXT,
+    email TEXT,
+    role TEXT,
+    source TEXT NOT NULL,
+    source_url TEXT,
+    evidence_snippet TEXT,
+    discovered_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS scrape_log (
@@ -188,6 +217,7 @@ CREATE INDEX IF NOT EXISTS idx_suppression_type_value ON suppression_list(entry_
 CREATE INDEX IF NOT EXISTS idx_daily_metrics_date ON daily_metrics(metric_date);
 CREATE INDEX IF NOT EXISTS idx_discovered_status ON discovered_companies(ats_status, promoted, dismissed);
 CREATE INDEX IF NOT EXISTS idx_discovered_domain ON discovered_companies(domain);
+CREATE INDEX IF NOT EXISTS idx_disc_contacts_domain ON discovered_contacts(domain);
 CREATE INDEX IF NOT EXISTS idx_scrape_log_source ON scrape_log(source_name, source_url);
 """
 
@@ -225,6 +255,10 @@ class Database:
         if self._column_exists("companies", "source"):
             self.conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_companies_source ON companies(source)"
+            )
+        if self._column_exists("people", "job_id"):
+            self.conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_people_job ON people(job_id)"
             )
         if existing is None or existing < SCHEMA_VERSION:
             self.conn.execute(
@@ -285,6 +319,68 @@ class Database:
                 "UPDATE companies SET source = COALESCE(source, 'watchlist')"
             )
             self.conn.commit()
+        if existing_version < 3:
+            company_columns = {
+                "discovery_source": "TEXT",
+                "discovery_source_url": "TEXT",
+                "industry": "TEXT",
+                "headcount_range": "TEXT",
+                "hq_location": "TEXT",
+                "description": "TEXT",
+                "tech_stack": "TEXT",
+            }
+            for column_name, column_type in company_columns.items():
+                if not self._column_exists("companies", column_name):
+                    self.conn.execute(
+                        f"ALTER TABLE companies ADD COLUMN {column_name} {column_type}"
+                    )
+
+            discovered_columns = {
+                "industry": "TEXT",
+                "headcount_range": "TEXT",
+                "hq_location": "TEXT",
+                "description": "TEXT",
+                "tech_stack": "TEXT",
+            }
+            for column_name, column_type in discovered_columns.items():
+                if not self._column_exists("discovered_companies", column_name):
+                    self.conn.execute(
+                        f"ALTER TABLE discovered_companies ADD COLUMN {column_name} {column_type}"
+                    )
+
+            if not self._column_exists("people", "job_id"):
+                self.conn.execute(
+                    "ALTER TABLE people ADD COLUMN job_id INTEGER REFERENCES jobs(id)"
+                )
+
+            pattern_columns = {
+                "success_count": "INTEGER NOT NULL DEFAULT 0",
+                "failure_count": "INTEGER NOT NULL DEFAULT 0",
+                "last_verified_at": "TEXT",
+            }
+            for column_name, column_type in pattern_columns.items():
+                if not self._column_exists("domain_patterns", column_name):
+                    self.conn.execute(
+                        f"ALTER TABLE domain_patterns ADD COLUMN {column_name} {column_type}"
+                    )
+
+            self.conn.executescript("""
+                CREATE TABLE IF NOT EXISTS discovered_contacts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    domain TEXT NOT NULL,
+                    name TEXT,
+                    email TEXT,
+                    role TEXT,
+                    source TEXT NOT NULL,
+                    source_url TEXT,
+                    evidence_snippet TEXT,
+                    discovered_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_people_job ON people(job_id);
+                CREATE INDEX IF NOT EXISTS idx_disc_contacts_domain ON discovered_contacts(domain);
+            """)
+            self.conn.commit()
 
     # ── Company queries ──
 
@@ -292,7 +388,12 @@ class Database:
                        ats: str = None, slug: str = None, careers_url: str = None,
                        jobs_url: str = None, workday_instance: str = None,
                        workday_board: str = None, source: str = "watchlist",
-                       job_family_focus: str = None, notes: str = None) -> int:
+                       discovery_source: str = None,
+                       discovery_source_url: str = None,
+                       job_family_focus: str = None, notes: str = None,
+                       industry: str = None, headcount_range: str = None,
+                       hq_location: str = None, description: str = None,
+                       tech_stack: str = None) -> int:
         row = self.conn.execute(
             "SELECT id FROM companies WHERE domain = ?", (domain,)
         ).fetchone()
@@ -300,23 +401,36 @@ class Database:
             self.conn.execute("""
                 UPDATE companies SET name=?, priority=?, ats=?, slug=?,
                     careers_url=?, jobs_url=?, workday_instance=?,
-                    workday_board=?, source=?, job_family_focus=?, notes=?,
+                    workday_board=?, source=?,
+                    discovery_source=COALESCE(?, discovery_source),
+                    discovery_source_url=COALESCE(?, discovery_source_url),
+                    job_family_focus=?, notes=?,
+                    industry=COALESCE(?, industry),
+                    headcount_range=COALESCE(?, headcount_range),
+                    hq_location=COALESCE(?, hq_location),
+                    description=COALESCE(?, description),
+                    tech_stack=COALESCE(?, tech_stack),
                     updated_at=datetime('now')
                 WHERE id=?
             """, (name, priority, ats, slug, careers_url, jobs_url,
-                  workday_instance, workday_board, source, job_family_focus,
-                  notes, row["id"]))
+                  workday_instance, workday_board, source, discovery_source,
+                  discovery_source_url, job_family_focus, notes, industry,
+                  headcount_range, hq_location, description, tech_stack,
+                  row["id"]))
             self.conn.commit()
             return row["id"]
         else:
             cur = self.conn.execute("""
                 INSERT INTO companies (name, domain, priority, ats, slug,
                     careers_url, jobs_url, workday_instance, workday_board,
-                    source, job_family_focus, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    source, discovery_source, discovery_source_url,
+                    job_family_focus, notes, industry, headcount_range,
+                    hq_location, description, tech_stack)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (name, domain, priority, ats, slug, careers_url, jobs_url,
-                  workday_instance, workday_board, source, job_family_focus,
-                  notes))
+                  workday_instance, workday_board, source, discovery_source,
+                  discovery_source_url, job_family_focus, notes, industry,
+                  headcount_range, hq_location, description, tech_stack))
             self.conn.commit()
             return cur.lastrowid
 
@@ -345,13 +459,32 @@ class Database:
     # ── Discovered company queries ──
 
     def insert_discovered_company(self, *, name: str, domain: str, source: str,
-                                  source_url: str = None, priority: int = 5) -> Optional[int]:
+                                  source_url: str = None, priority: int = 5,
+                                  industry: str = None, headcount_range: str = None,
+                                  hq_location: str = None, description: str = None,
+                                  tech_stack: str = None) -> Optional[int]:
+        existing = self.get_discovered_company_by_domain(domain)
         cur = self.conn.execute("""
-            INSERT OR IGNORE INTO discovered_companies
-                (name, domain, source, source_url, priority)
-            VALUES (?, ?, ?, ?, ?)
-        """, (name, domain, source, source_url, priority))
+            INSERT INTO discovered_companies
+                (name, domain, source, source_url, priority, industry,
+                 headcount_range, hq_location, description, tech_stack)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(domain) DO UPDATE SET
+                source_url = COALESCE(discovered_companies.source_url, excluded.source_url),
+                priority = CASE
+                    WHEN excluded.priority < discovered_companies.priority THEN excluded.priority
+                    ELSE discovered_companies.priority
+                END,
+                industry = COALESCE(discovered_companies.industry, excluded.industry),
+                headcount_range = COALESCE(discovered_companies.headcount_range, excluded.headcount_range),
+                hq_location = COALESCE(discovered_companies.hq_location, excluded.hq_location),
+                description = COALESCE(discovered_companies.description, excluded.description),
+                tech_stack = COALESCE(discovered_companies.tech_stack, excluded.tech_stack)
+        """, (name, domain, source, source_url, priority, industry,
+              headcount_range, hq_location, description, tech_stack))
         self.conn.commit()
+        if existing:
+            return None
         return cur.lastrowid if cur.rowcount else None
 
     def get_discovered_company_by_domain(self, domain: str) -> Optional[sqlite3.Row]:
@@ -409,9 +542,16 @@ class Database:
             jobs_url=row["jobs_url"],
             workday_instance=row["workday_instance"],
             workday_board=row["workday_board"],
+            discovery_source=row["source"],
+            discovery_source_url=row["source_url"],
             job_family_focus=None,
             notes=f"Auto-discovered from {row['source']}",
             source=source,
+            industry=row["industry"],
+            headcount_range=row["headcount_range"],
+            hq_location=row["hq_location"],
+            description=row["description"],
+            tech_stack=row["tech_stack"],
         )
         self.conn.execute(
             "UPDATE discovered_companies SET promoted = 1 WHERE id = ?",
@@ -522,32 +662,60 @@ class Database:
     # ── People queries ──
 
     def insert_person(self, *, company_id: int, name: str = None,
+                      job_id: int = None,
                       email: str = None, role: str = None,
                       confidence_tier: str, contact_source_type: str = None,
                       source_url: str = None, evidence_snippet: str = None) -> int:
         cur = self.conn.execute("""
-            INSERT INTO people (company_id, name, email, role, confidence_tier,
+            INSERT INTO people (company_id, job_id, name, email, role, confidence_tier,
                 contact_source_type, source_url, evidence_snippet)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (company_id, name, email, role, confidence_tier,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (company_id, job_id, name, email, role, confidence_tier,
               contact_source_type, source_url, evidence_snippet))
         self.conn.commit()
         return cur.lastrowid
 
-    def get_pending_contacts(self, company_id: int) -> List[sqlite3.Row]:
-        return self.conn.execute("""
+    def get_pending_contacts(self, company_id: int, job_id=_CONTACT_SCOPE_ALL) -> List[sqlite3.Row]:
+        base_query = """
             SELECT * FROM people WHERE company_id = ?
             ORDER BY
                 CASE confidence_tier
                     WHEN 'public_exact' THEN 1
                     WHEN 'public_generic_inbox' THEN 2
                     WHEN 'pattern_verified' THEN 3
-                    WHEN 'pattern_inferred' THEN 4
-                    WHEN 'catch_all_guess' THEN 5
-                    WHEN 'generic_guess' THEN 6
-                    ELSE 7
+                    WHEN 'catch_all_pattern_match' THEN 4
+                    WHEN 'pattern_inferred' THEN 5
+                    WHEN 'catch_all_guess' THEN 6
+                    WHEN 'generic_guess' THEN 7
+                    ELSE 8
                 END
-        """, (company_id,)).fetchall()
+        """
+        params: List[Any] = [company_id]
+        if job_id is _CONTACT_SCOPE_ALL:
+            query = base_query
+        elif job_id is None:
+            query = base_query.replace("WHERE company_id = ?", "WHERE company_id = ? AND job_id IS NULL")
+        else:
+            query = base_query.replace("WHERE company_id = ?", "WHERE company_id = ? AND job_id = ?")
+            params.append(job_id)
+        return self.conn.execute(query, params).fetchall()
+
+    def get_contacts_for_job(self, job_id: int) -> List[sqlite3.Row]:
+        return self.conn.execute("""
+            SELECT * FROM people
+            WHERE job_id = ?
+            ORDER BY
+                CASE confidence_tier
+                    WHEN 'public_exact' THEN 1
+                    WHEN 'public_generic_inbox' THEN 2
+                    WHEN 'pattern_verified' THEN 3
+                    WHEN 'catch_all_pattern_match' THEN 4
+                    WHEN 'pattern_inferred' THEN 5
+                    WHEN 'catch_all_guess' THEN 6
+                    WHEN 'generic_guess' THEN 7
+                    ELSE 8
+                END
+        """, (job_id,)).fetchall()
 
     @staticmethod
     def _is_real_person_contact(contact) -> bool:
@@ -617,24 +785,32 @@ class Database:
 
         return True
 
-    def get_best_contact(self, company_id: int, skip_generic: bool = True) -> Optional[sqlite3.Row]:
+    def get_best_contact(self, company_id: int, job_id: int = None,
+                         skip_generic: bool = True) -> Optional[sqlite3.Row]:
         """
         Get the best contact for a company.
         If skip_generic=True (default), filters out generic inboxes and
         scraped-text junk, returning only contacts that are real people.
         Cold outreach to generic inboxes is a waste — nobody reads those.
         """
-        contacts = self.get_pending_contacts(company_id)
-        if not contacts:
-            return None
+        contact_sets: List[List[sqlite3.Row]] = []
+        if job_id is not None:
+            contact_sets.append(self.get_pending_contacts(company_id, job_id=job_id))
+        contact_sets.append(self.get_pending_contacts(company_id, job_id=None))
+        if job_id is None:
+            contact_sets = [self.get_pending_contacts(company_id)]
 
-        if skip_generic:
-            real_contacts = [c for c in contacts if self._is_real_person_contact(c)]
-            if real_contacts:
-                return real_contacts[0]
-            return None
+        for contacts in contact_sets:
+            if not contacts:
+                continue
+            if skip_generic:
+                real_contacts = [c for c in contacts if self._is_real_person_contact(c)]
+                if real_contacts:
+                    return real_contacts[0]
+                continue
+            return contacts[0]
 
-        return contacts[0]
+        return None
 
     # ── Message queries ──
 
@@ -723,6 +899,14 @@ class Database:
 
     # ── Cooldown checks ──
 
+    def check_person_has_pending_message(self, person_id: int) -> bool:
+        """Check if this person already has an unsent message (ready, pending_review, etc.)."""
+        row = self.conn.execute("""
+            SELECT 1 FROM messages
+            WHERE person_id = ? AND status IN ('ready', 'pending_review', 'approved')
+        """, (person_id,)).fetchone()
+        return row is not None
+
     def check_person_cooldown(self, person_id: int, days: int = 90) -> bool:
         row = self.conn.execute("""
             SELECT 1 FROM messages
@@ -782,6 +966,75 @@ class Database:
                 updated_at=datetime('now')
         """, (domain, pattern, confidence, 1 if is_catch_all else 0))
         self.conn.commit()
+
+    def record_pattern_outcome(self, domain: str, success: bool):
+        field = "success_count" if success else "failure_count"
+        self.conn.execute(f"""
+            UPDATE domain_patterns
+            SET {field} = {field} + 1,
+                last_verified_at = datetime('now'),
+                updated_at = datetime('now')
+            WHERE domain = ?
+        """, (domain,))
+        self.conn.commit()
+
+    def insert_discovered_contact(self, *, domain: str, name: str = None,
+                                  email: str = None, role: str = None,
+                                  source: str, source_url: str = None,
+                                  evidence_snippet: str = None) -> Optional[int]:
+        existing = self.conn.execute("""
+            SELECT id FROM discovered_contacts
+            WHERE domain = ?
+              AND COALESCE(name, '') = COALESCE(?, '')
+              AND COALESCE(email, '') = COALESCE(?, '')
+              AND COALESCE(role, '') = COALESCE(?, '')
+              AND source = ?
+              AND COALESCE(source_url, '') = COALESCE(?, '')
+        """, (domain, name, email, role, source, source_url)).fetchone()
+        if existing:
+            return existing["id"]
+
+        cur = self.conn.execute("""
+            INSERT INTO discovered_contacts (domain, name, email, role, source, source_url, evidence_snippet)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (domain, name, email, role, source, source_url, evidence_snippet))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def get_discovered_contacts(self, domain: str) -> List[sqlite3.Row]:
+        return self.conn.execute("""
+            SELECT * FROM discovered_contacts
+            WHERE domain = ?
+            ORDER BY discovered_at ASC, id ASC
+        """, (domain,)).fetchall()
+
+    def get_pipeline_funnel(self, discovery_source: str = None) -> List[sqlite3.Row]:
+        query = """
+            SELECT
+                c.discovery_source,
+                COUNT(DISTINCT c.id) as companies,
+                COUNT(DISTINCT j.id) as jobs,
+                COUNT(DISTINCT CASE
+                    WHEN j.qualification_status IN ('qualified_auto', 'qualified_review') THEN j.id
+                END) as qualified,
+                COUNT(DISTINCT p.id) as contacts,
+                COUNT(DISTINCT CASE WHEN m.status = 'sent' THEN m.id END) as sent,
+                COUNT(DISTINCT CASE WHEN m.status LIKE 'replied_%' THEN m.id END) as replies
+            FROM companies c
+            LEFT JOIN jobs j ON j.company_id = c.id
+            LEFT JOIN people p ON p.company_id = c.id
+            LEFT JOIN messages m ON m.company_id = c.id
+            WHERE c.discovery_source IS NOT NULL
+        """
+        params: List[Any] = []
+        if discovery_source is not None:
+            query += " AND c.discovery_source = ?"
+            params.append(discovery_source)
+        query += """
+            GROUP BY c.discovery_source
+            ORDER BY companies DESC, c.discovery_source ASC
+        """
+        return self.conn.execute(query, params).fetchall()
 
     # ── Review queue queries ──
 
@@ -870,12 +1123,12 @@ class Database:
     def get_recent_bounce_rate(self, last_n: int = 50) -> float:
         rows = self.conn.execute("""
             SELECT status FROM messages
-            WHERE status IN ('sent', 'bounced')
+            WHERE status IN ('sent', 'bounced', 'replied_bounce')
             ORDER BY sent_at DESC LIMIT ?
         """, (last_n,)).fetchall()
         if not rows:
             return 0.0
-        bounced = sum(1 for r in rows if r["status"] == "bounced")
+        bounced = sum(1 for r in rows if r["status"] in ("bounced", "replied_bounce"))
         return bounced / len(rows)
 
     def get_today_send_count(self) -> int:
