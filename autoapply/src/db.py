@@ -731,6 +731,7 @@ class Database:
             return False
 
         local_part = email.split("@")[0].lower()
+        local_tokens = [tok for tok in _re.split(r"[._-]+", local_part) if tok]
 
         # Reject generic / functional inboxes
         GENERIC_LOCAL_PARTS = {
@@ -742,6 +743,17 @@ class Database:
             "security", "compliance", "noreply", "no-reply",
         }
         if local_part in GENERIC_LOCAL_PARTS:
+            return False
+        if any(tok in GENERIC_LOCAL_PARTS for tok in local_tokens):
+            return False
+
+        # Reject suspicious first.last placeholders that frequently appear
+        # in scraped or synthetic contact records.
+        PLACEHOLDER_TOKENS = {
+            "why", "use", "center", "setting", "example", "test",
+            "sample", "dummy", "unknown",
+        }
+        if any(tok in PLACEHOLDER_TOKENS for tok in local_tokens):
             return False
 
         # Reject emails whose local part contains HTML/junk artifacts
@@ -842,6 +854,19 @@ class Database:
             WHERE m.status = 'ready'
         """).fetchall()
 
+    def get_dry_run_export_messages(self) -> List[sqlite3.Row]:
+        """Ready and pending_review drafts (not yet sent) for --dry-run file export."""
+        return self.conn.execute("""
+            SELECT m.*, p.name as contact_name, p.email as contact_email,
+                p.confidence_tier, c.name as company_name, j.title as job_title
+            FROM messages m
+            JOIN people p ON m.person_id = p.id
+            JOIN companies c ON m.company_id = c.id
+            JOIN jobs j ON m.job_id = j.id
+            WHERE m.status IN ('ready', 'pending_review')
+            ORDER BY m.id ASC
+        """).fetchall()
+
     def update_message_status(self, message_id: int, status: str,
                               gmail_message_id: str = None,
                               gmail_thread_id: str = None):
@@ -907,12 +932,44 @@ class Database:
         """, (person_id,)).fetchone()
         return row is not None
 
+    def check_contact_email_has_blocking_initial(self, email: str) -> bool:
+        """
+        True if this address already has any non-skipped *initial* message (any person row).
+
+        The same human often appears as multiple ``people`` rows (job-scoped vs company-wide)
+        with the same email; per-``person_id`` checks are not enough to enforce one outreach.
+        """
+        if not email or not str(email).strip():
+            return False
+        normalized = str(email).strip().lower()
+        row = self.conn.execute("""
+            SELECT 1 FROM messages m
+            JOIN people p ON m.person_id = p.id
+            WHERE m.message_type = 'initial'
+              AND lower(trim(p.email)) = ?
+              AND trim(p.email) != ''
+              AND m.status != 'skipped'
+            LIMIT 1
+        """, (normalized,)).fetchone()
+        return row is not None
+
     def check_person_cooldown(self, person_id: int, days: int = 90) -> bool:
         row = self.conn.execute("""
-            SELECT 1 FROM messages
-            WHERE person_id = ? AND status = 'sent'
-                AND julianday('now') - julianday(sent_at) < ?
-        """, (person_id, days)).fetchone()
+            SELECT 1 FROM messages m
+            JOIN people p ON m.person_id = p.id
+            WHERE m.status = 'sent'
+                AND julianday('now') - julianday(m.sent_at) < ?
+                AND (
+                    p.id = ?
+                    OR (
+                        trim(COALESCE(p.email, '')) != ''
+                        AND lower(trim(p.email)) IN (
+                            SELECT lower(trim(COALESCE(p2.email, '')))
+                            FROM people p2 WHERE p2.id = ? AND trim(COALESCE(p2.email, '')) != ''
+                        )
+                    )
+                )
+        """, (days, person_id, person_id)).fetchone()
         return row is not None
 
     def check_company_job_family_cooldown(self, company_id: int,

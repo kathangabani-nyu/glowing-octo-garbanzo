@@ -63,6 +63,18 @@ def _is_rejected_role(title: str, reject_roles: List[str]) -> List[str]:
     return [role for role in reject_roles if role in normalized]
 
 
+def _title_has_engineering_signal(title: str) -> bool:
+    """Detect whether title appears to be engineering/technical."""
+    normalized = _normalize(title)
+    engineering_signals = (
+        "software engineer", "engineer", "developer", "sre", "site reliability",
+        "machine learning", "ml ", "ai ", "research engineer", "scientist",
+        "data engineer", "platform", "full stack", "fullstack", "backend",
+        "frontend", "systems",
+    )
+    return any(signal in normalized for signal in engineering_signals)
+
+
 def _priority_bonus(priority: int) -> Tuple[int, str]:
     if priority <= 2:
         return 12, "high-priority company"
@@ -131,6 +143,14 @@ def score_job(config: Config, job_row, company_row) -> ScoreResult:
     skill_matches = _contains_any(combined, config.job_targets.skills)
     if not title_matches and not skill_matches:
         reasons.append("no title or skill match — not a relevant role")
+        return ScoreResult(score=0, status="reject", reasons=reasons)
+    if (
+        not title_matches
+        and skill_matches
+        and config.job_targets.skill_only_requires_engineering_title
+        and not _title_has_engineering_signal(title)
+    ):
+        reasons.append("skill-only match but title is not engineering")
         return ScoreResult(score=0, status="reject", reasons=reasons)
 
     if skill_matches:
@@ -212,14 +232,13 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
         result = score_job(config, job, company)
         reasons_text = "; ".join(result.reasons)
 
-        if not dry_run:
-            db.update_job_score(
-                job["id"],
-                result.status,
-                result.score,
-                reasons_text,
-                mode="keyword",
-            )
+        db.update_job_score(
+            job["id"],
+            result.status,
+            result.score,
+            reasons_text,
+            mode="keyword",
+        )
 
         counters[result.status] += 1
         processed += 1

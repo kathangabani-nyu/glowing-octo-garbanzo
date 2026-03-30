@@ -40,6 +40,7 @@ job_targets:
     - "new grad"
   locations: []
   remote_ok: true
+  skill_only_requires_engineering_title: true   # When only skills match, require an engineering-like title
   us_only: false                  # Set true to reject non-US job locations
   location_reject_keywords: []    # e.g. ["uk", "germany", "india", "emea", "apac"]
   min_experience_years: 0
@@ -84,6 +85,9 @@ llm:
   ollama_url: "http://localhost:11434"
   model: "llama3.1:8b"
   timeout_seconds: 30
+  assembly_gate_enabled: false
+  assembly_gate_mode: "advisory"  # advisory | strict
+  assembly_gate_min_confidence: 0.75
 
 domain_profile:
   name: "cs"

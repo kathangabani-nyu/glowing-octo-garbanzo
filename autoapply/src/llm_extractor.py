@@ -13,7 +13,8 @@ Module owner: Claude Code
 
 import json
 import re
-from typing import Optional, List
+from dataclasses import dataclass
+from typing import Optional, List, Dict, Any
 
 import requests
 
@@ -42,6 +43,40 @@ Rules:
 - company_blurb: Must be a direct quote or close paraphrase from the posting, max 60 characters.
 - If you are not confident a field is correct, set it to null.
 - Return ONLY the JSON object, no other text."""
+
+ASSEMBLY_GATE_SYSTEM_PROMPT = """\
+You are a strict outreach quality reviewer.
+Decide if a drafted outreach email should be allowed, reviewed, or rejected.
+
+Return ONLY JSON with exactly these fields:
+{
+  "role_fit": "allow|review|reject",
+  "role_fit_confidence": 0.0,
+  "contact_name_ok": true,
+  "safe_greeting_name": "string",
+  "message_quality": "allow|review|reject",
+  "message_confidence": 0.0,
+  "reasons": ["short reason", "short reason"]
+}
+
+Rules:
+- Reject roles that are off-target for the provided profile.
+- If contact name seems synthetic, generic, or unsafe for first-name greeting, set contact_name_ok=false and provide a safe greeting fallback.
+- Reject if email content is clearly mismatched to role type.
+- If uncertain, use review (not allow).
+- Keep reasons concise and factual.
+"""
+
+
+@dataclass
+class AssemblyGateResult:
+    role_fit: str = "review"
+    role_fit_confidence: float = 0.0
+    contact_name_ok: bool = False
+    safe_greeting_name: str = "there"
+    message_quality: str = "review"
+    message_confidence: float = 0.0
+    reasons: List[str] = None
 
 
 def _build_user_prompt(
@@ -338,3 +373,65 @@ def extract_details_llm(
         f"tech={result.key_technology}, blurb={result.company_blurb}"
     )
     return result
+
+
+def _build_assembly_gate_prompt(candidate: Dict[str, Any]) -> str:
+    return (
+        "Evaluate this outreach candidate using the provided profile and draft.\n"
+        f"Profile name: {candidate.get('profile_name', '')}\n"
+        f"Target title keywords: {', '.join(candidate.get('title_keywords', []))}\n"
+        f"Excluded titles: {', '.join(candidate.get('title_exclude', []))}\n"
+        f"Profile reject roles: {', '.join(candidate.get('reject_roles', []))}\n"
+        f"Role title: {candidate.get('role_title', '')}\n"
+        f"Company: {candidate.get('company', '')}\n"
+        f"Contact name: {candidate.get('contact_name', '')}\n"
+        f"Contact email: {candidate.get('contact_email', '')}\n"
+        f"Draft subject: {candidate.get('subject', '')}\n"
+        f"Draft body:\n---\n{candidate.get('body', '')[:2500]}\n---\n"
+    )
+
+
+def validate_assembly_candidate(
+    config: LLMConfig,
+    candidate: Dict[str, Any],
+) -> AssemblyGateResult:
+    """Validate role-fit/contact/greeting/message quality for assembled emails."""
+    prompt = _build_assembly_gate_prompt(candidate)
+    response_text = _query_ollama(config, ASSEMBLY_GATE_SYSTEM_PROMPT, prompt)
+    if response_text is None:
+        return AssemblyGateResult(
+            role_fit="review",
+            message_quality="review",
+            reasons=["ollama_unavailable"],
+        )
+
+    parsed = _parse_json_response(response_text)
+    if parsed is None:
+        return AssemblyGateResult(
+            role_fit="review",
+            message_quality="review",
+            reasons=["assembly_gate_parse_failed"],
+        )
+
+    role_fit = parsed.get("role_fit", "review")
+    message_quality = parsed.get("message_quality", "review")
+    if role_fit not in {"allow", "review", "reject"}:
+        role_fit = "review"
+    if message_quality not in {"allow", "review", "reject"}:
+        message_quality = "review"
+
+    reasons = parsed.get("reasons")
+    if not isinstance(reasons, list):
+        reasons = []
+    reasons = [str(r) for r in reasons[:4] if str(r).strip()]
+
+    safe_greeting = (parsed.get("safe_greeting_name") or "").strip() or "there"
+    return AssemblyGateResult(
+        role_fit=role_fit,
+        role_fit_confidence=float(parsed.get("role_fit_confidence") or 0.0),
+        contact_name_ok=bool(parsed.get("contact_name_ok")),
+        safe_greeting_name=safe_greeting,
+        message_quality=message_quality,
+        message_confidence=float(parsed.get("message_confidence") or 0.0),
+        reasons=reasons,
+    )

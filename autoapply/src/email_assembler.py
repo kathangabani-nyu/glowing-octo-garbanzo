@@ -14,7 +14,7 @@ Module owner: Claude Code
 
 import os
 import re
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, List
 
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
@@ -154,6 +154,29 @@ def _select_greeting_name(contact_name: Optional[str], company_name: str = "") -
     if company_clean:
         return f"{company_clean} team"
     return "there"
+
+
+def _safe_fallback_greeting(company_name: str = "") -> str:
+    company_clean = (company_name or "").strip()
+    if company_clean:
+        return f"{company_clean} team"
+    return "there"
+
+
+def _map_llm_gate_to_review_reason(
+    role_fit: str,
+    message_quality: str,
+    reasons: List[str],
+) -> Optional[str]:
+    if role_fit == "reject" or message_quality == "reject":
+        return "llm_reject"
+    if role_fit == "review":
+        return "llm_role_review"
+    if message_quality == "review":
+        return "llm_quality_review"
+    if reasons:
+        return "llm_review"
+    return None
 
 
 def _extract_details(
@@ -309,6 +332,14 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
         except ImportError:
             logger.info("llm_extractor not available, using regex extraction")
 
+    assembly_gate_active = (
+        use_llm
+        and config.llm.assembly_gate_enabled
+        and config.llm.assembly_gate_mode in {"advisory", "strict"}
+    )
+    if assembly_gate_active:
+        logger.info("LLM assembly gate enabled (%s)", config.llm.assembly_gate_mode)
+
     messages_created = 0
     qualified_jobs = db.get_qualified_jobs("qualified_auto") + db.get_qualified_jobs("qualified_review")
 
@@ -354,6 +385,15 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
             logger.debug(
                 f"Skipping job {job_id} — person {contact['id']} ({contact['email']}) "
                 f"already has a pending message in the queue"
+            )
+            continue
+
+        # 3) Same email on a different people row already has initial outreach?
+        if contact["email"] and db.check_contact_email_has_blocking_initial(contact["email"]):
+            logger.debug(
+                "Skipping job %s — email %s already has a non-skipped initial message",
+                job_id,
+                contact["email"],
             )
             continue
 
@@ -438,6 +478,59 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
             config.domain_profile.default_bucket,
         )
 
+        llm_gate_reasons: List[str] = []
+        gate = None
+        if assembly_gate_active:
+            try:
+                from src.llm_extractor import validate_assembly_candidate
+                gate = validate_assembly_candidate(
+                    config.llm,
+                    {
+                        "profile_name": config.domain_profile.name,
+                        "title_keywords": config.job_targets.title_keywords,
+                        "title_exclude": config.job_targets.title_exclude,
+                        "reject_roles": config.domain_profile.reject_roles,
+                        "role_title": job["title"],
+                        "company": company["name"] if company else "",
+                        "contact_name": contact["name"] or "",
+                        "contact_email": contact["email"] or "",
+                        "subject": subject,
+                        "body": body,
+                    },
+                )
+                llm_gate_reasons = gate.reasons or []
+
+                # Avoid unsafe greetings for suspicious contact names.
+                if not gate.contact_name_ok:
+                    context["greeting_name"] = _safe_fallback_greeting(
+                        company["name"] if company else "",
+                    )
+                    subject, body = _render_email(
+                        env,
+                        role_bucket,
+                        context,
+                        config.domain_profile.default_bucket,
+                    )
+                elif gate.safe_greeting_name:
+                    context["greeting_name"] = gate.safe_greeting_name
+
+                # Strict mode can skip unsuitable drafts before insertion.
+                if (
+                    config.llm.assembly_gate_mode == "strict"
+                    and (gate.role_fit == "reject" or gate.message_quality == "reject")
+                ):
+                    logger.info(
+                        "[SKIP][LLM] %s / %s -> %s reasons=%s",
+                        company["name"] if company else "?",
+                        job["title"],
+                        contact["email"],
+                        ", ".join(llm_gate_reasons) if llm_gate_reasons else "none",
+                    )
+                    persons_assembled_this_run.add(contact["id"])
+                    continue
+            except Exception as e:
+                logger.warning("LLM assembly gate failed, continuing with defaults: %s", e)
+
         # Determine if review is needed
         review_reason = _determine_review_reason(
             contact["confidence_tier"],
@@ -445,6 +538,27 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
             config.message_quality.auto_send_threshold,
             has_personalization,
         )
+        if assembly_gate_active and gate is not None:
+            try:
+                gate_reason = _map_llm_gate_to_review_reason(
+                    gate.role_fit,
+                    gate.message_quality,
+                    gate.reasons or [],
+                )
+                if gate_reason and not review_reason:
+                    review_reason = gate_reason
+                if (
+                    config.llm.assembly_gate_mode == "strict"
+                    and gate.role_fit == "allow"
+                    and gate.message_quality == "allow"
+                    and (
+                        gate.role_fit_confidence < config.llm.assembly_gate_min_confidence
+                        or gate.message_confidence < config.llm.assembly_gate_min_confidence
+                    )
+                ):
+                    review_reason = "llm_low_confidence"
+            except Exception as e:
+                logger.warning("LLM post-render validation failed: %s", e)
         review_required = review_reason is not None
 
         # Determine resume attachment policy
@@ -481,7 +595,8 @@ def run(config: Config, db: Database, dry_run: bool = False) -> int:
         status = "REVIEW" if review_required else "READY"
         logger.info(
             f"[{status}] {company['name'] if company else '?'} / {job['title']} "
-            f"-> {contact['email']} ({tier}) score={quality_score}"
+            f"-> {contact['email']} ({tier}) score={quality_score} "
+            f"llm={','.join(llm_gate_reasons) if llm_gate_reasons else 'none'}"
         )
 
     logger.info(f"Assembled {messages_created} messages")

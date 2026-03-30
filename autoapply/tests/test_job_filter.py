@@ -112,6 +112,24 @@ class TestJobFilter(unittest.TestCase):
         result = score_job(self.config, job, company)
         self.assertEqual(result.status, "reject")
 
+    def test_skill_only_non_engineering_title_rejected(self):
+        job_id = self._insert_job(
+            title="Account Development Representative",
+            location="Remote",
+            posting_text="Python experience required for data tooling and outreach.",
+        )
+        job = self.db.conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        company = self.db.get_company(self.company_id)
+
+        result = score_job(self.config, job, company)
+        self.assertEqual(result.status, "reject")
+        self.assertTrue(
+            (
+                "skill-only match but title is not engineering" in "; ".join(result.reasons)
+                or "rejected role:" in "; ".join(result.reasons)
+            )
+        )
+
     def test_run_updates_job_statuses_and_metrics(self):
         self._insert_job(
             title="Software Engineer",

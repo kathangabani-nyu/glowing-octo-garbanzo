@@ -55,6 +55,7 @@ class JobTarget:
     seniority: List[str] = field(default_factory=list)
     locations: List[str] = field(default_factory=list)
     remote_ok: bool = True
+    skill_only_requires_engineering_title: bool = True
     us_only: bool = False
     location_reject_keywords: List[str] = field(default_factory=list)
     min_experience_years: int = 0
@@ -94,6 +95,9 @@ class LLMConfig:
     ollama_url: str = "http://localhost:11434"
     model: str = "llama3.1:8b"
     timeout_seconds: int = 30
+    assembly_gate_enabled: bool = False
+    assembly_gate_mode: str = "advisory"
+    assembly_gate_min_confidence: float = 0.75
     generic_team_words: List[str] = field(default_factory=lambda: [
         "team", "engineering", "company", "organization", "group"
     ])
@@ -134,12 +138,17 @@ class DomainProfile:
         "recruiter", "recruiting", "talent acquisition", "human resources",
         "people operations", "people partner", "hr ",
         "sales", "account executive", "account manager", "business development",
+        "account development", "account development representative", "adr",
+        "inbound adr", "specialist seller", "partner specialist",
+        "mid-market", "public sector", "implementation consultant",
+        "renewals specialist",
         "marketing", "content", "copywriter", "communications", "pr ",
         "public relations", "social media", "growth marketing",
         "product designer", "ux designer", "ui designer", "graphic designer",
         "brand designer", "visual designer", "design director",
         "product manager", "program manager", "project manager",
         "customer success", "customer support", "support engineer",
+        "support agent", "product support specialist",
         "office manager", "executive assistant", "administrative",
         "facilities", "real estate", "workplace",
         "rtl", "asic", "fpga", "hardware engineer", "mechanical engineer",
@@ -149,6 +158,7 @@ class DomainProfile:
         "policy", "government affairs", "lobbyist",
         "supply chain", "logistics", "procurement", "inventory",
         "warehouse", "shipping",
+        "lab technician", "technician",
         "nurse", "physician", "clinician", "therapist", "pharmacist",
         "kyc", "sanctions", "aml", "anti-money", "fraud analyst",
         "risk analyst", "audit", "auditor",

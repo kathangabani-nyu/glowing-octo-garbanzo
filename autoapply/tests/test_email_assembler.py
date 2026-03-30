@@ -3,11 +3,12 @@
 import os
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.db import Database
-from src.config import Config, CooldownConfig, DomainProfile, JobTarget, MessageQualityConfig, SenderConfig
+from src.config import Config, CooldownConfig, DomainProfile, JobTarget, MessageQualityConfig, SenderConfig, LLMConfig
 from src.email_assembler import (
     _classify_role_bucket,
     _compute_quality_score,
@@ -207,6 +208,85 @@ class TestAssemblerRunWithDB(unittest.TestCase):
 
         messages = self.db.get_ready_messages()
         self.assertEqual(len(messages), 1)
+
+    @patch("src.llm_extractor.validate_assembly_candidate")
+    @patch("src.llm_extractor.check_ollama_available")
+    @patch("src.email_assembler._extract_details")
+    def test_llm_strict_reject_skips_message(self, mock_extract, mock_ollama, mock_gate):
+        class Gate:
+            role_fit = "reject"
+            role_fit_confidence = 0.99
+            contact_name_ok = True
+            safe_greeting_name = "Jane"
+            message_quality = "reject"
+            message_confidence = 0.99
+            reasons = ["off_target_role"]
+
+        mock_ollama.return_value = True
+        mock_gate.return_value = Gate()
+        mock_extract.return_value = {
+            "team_or_product": "ML Platform",
+            "key_technology": "Python",
+            "company_blurb": None,
+        }
+        self.config.llm = LLMConfig(
+            use_local_llm=True,
+            assembly_gate_enabled=True,
+            assembly_gate_mode="strict",
+            assembly_gate_min_confidence=0.75,
+        )
+
+        count = run(self.config, self.db)
+        self.assertEqual(count, 0)
+        self.assertEqual(len(self.db.get_ready_messages()), 0)
+
+    @patch("src.llm_extractor.validate_assembly_candidate")
+    @patch("src.llm_extractor.check_ollama_available")
+    @patch("src.email_assembler._extract_details")
+    def test_llm_contact_name_fallback_avoids_unsafe_greeting(self, mock_extract, mock_ollama, mock_gate):
+        # Replace contact with suspicious placeholder-style name.
+        self.db.conn.execute("DELETE FROM people WHERE id = ?", (self.person_id,))
+        self.person_id = self.db.insert_person(
+            company_id=self.company_id,
+            name="Why English",
+            email="jane.smith@testco.com",
+            role="Recruiter",
+            confidence_tier="pattern_verified",
+            contact_source_type="team_page",
+        )
+        self.db.conn.commit()
+
+        class Gate:
+            role_fit = "allow"
+            role_fit_confidence = 0.95
+            contact_name_ok = False
+            safe_greeting_name = "there"
+            message_quality = "allow"
+            message_confidence = 0.95
+            reasons = ["unsafe_contact_name"]
+
+        mock_ollama.return_value = True
+        mock_gate.return_value = Gate()
+        mock_extract.return_value = {
+            "team_or_product": "ML Platform",
+            "key_technology": "Python",
+            "company_blurb": None,
+        }
+        self.config.llm = LLMConfig(
+            use_local_llm=True,
+            assembly_gate_enabled=True,
+            assembly_gate_mode="strict",
+            assembly_gate_min_confidence=0.75,
+        )
+
+        count = run(self.config, self.db)
+        self.assertEqual(count, 1)
+        row = self.db.conn.execute(
+            "SELECT status, body FROM messages ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        self.assertEqual(row["status"], "pending_review")
+        self.assertIn("Hi TestCo team,", row["body"])
+        self.assertNotIn("Hi Why,", row["body"])
 
 
 if __name__ == "__main__":

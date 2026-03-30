@@ -161,6 +161,32 @@ class TestJobDiscovererRun(unittest.TestCase):
         self.assertEqual(metrics["jobs_discovered"], 1)
 
     @patch("src.job_discoverer.discover_company_jobs")
+    def test_run_dry_run_still_inserts_jobs_without_metrics(self, mock_discover):
+        company = WatchlistCompany(name="Acme", domain="acme.com", ats="greenhouse", slug="acme", priority=2)
+        watchlist = Watchlist(companies=[company])
+        mock_discover.return_value = [
+            type("Job", (), {
+                "external_job_id": "job-1",
+                "title": "Software Engineer",
+                "url": "https://acme.com/jobs/1",
+                "location": "Remote",
+                "posting_text": "Python backend role",
+                "job_family": "software",
+                "source": "greenhouse_api",
+            })()
+        ]
+
+        inserted = run(watchlist, self.db, self.config, dry_run=True)
+
+        self.assertEqual(inserted, 1)
+        self.assertEqual(len(self.db.get_unscored_jobs()), 1)
+        metrics = self.db.get_daily_metrics()
+        self.assertTrue(
+            metrics is None or (metrics["jobs_discovered"] or 0) == 0,
+            "dry-run should not bump jobs_discovered metric",
+        )
+
+    @patch("src.job_discoverer.discover_company_jobs")
     def test_run_marks_missing_jobs_closed(self, mock_discover):
         company = WatchlistCompany(name="Acme", domain="acme.com", ats="greenhouse", slug="acme", priority=2)
         watchlist = Watchlist(companies=[company])

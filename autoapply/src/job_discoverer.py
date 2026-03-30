@@ -445,10 +445,9 @@ def run(watchlist: Watchlist, db: Database, config: Config, dry_run: bool = Fals
             continue
 
         active_ids: List[str] = []
+        newly_inserted_here = 0
         for job in discovered:
             active_ids.append(job.external_job_id)
-            if dry_run:
-                continue
             inserted = db.insert_job(
                 company_id=company_id,
                 external_job_id=job.external_job_id,
@@ -461,11 +460,16 @@ def run(watchlist: Watchlist, db: Database, config: Config, dry_run: bool = Fals
             )
             if inserted is not None:
                 new_jobs += 1
+                newly_inserted_here += 1
 
-        if not dry_run:
-            db.mark_jobs_closed(company_id, active_ids)
+        db.mark_jobs_closed(company_id, active_ids)
 
-        logger.info("[%s] Found %s jobs (%s new)", company.domain, len(discovered), sum(1 for _ in discovered))
+        logger.info(
+            "[%s] Found %s jobs (%s newly inserted)",
+            company.domain,
+            len(discovered),
+            newly_inserted_here,
+        )
 
     if new_jobs and not dry_run:
         db.increment_metric("jobs_discovered", new_jobs)

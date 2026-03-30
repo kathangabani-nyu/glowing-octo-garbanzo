@@ -210,6 +210,19 @@ mkdir resumes
 # Update resume_path and resume_variants in config.yaml
 ```
 
+### 8. Choose a profile (CS vs Finance)
+
+- **CS/ML profile** (default):
+  - `python run_daily.py --config config.local.yaml --watchlist watchlist.local.yaml`
+- **Finance profile**:
+  - `python run_daily.py --config config_finance.yaml --watchlist watchlist.local.yaml`
+
+Profile behavior is controlled by `domain_profile` and `job_targets`.
+Important gate:
+- `job_targets.skill_only_requires_engineering_title`  
+  - `true`: skill-only matches still require an engineering-like title (recommended for CS profile)
+  - `false`: allow non-engineering titles to qualify on skills (used by finance profile)
+
 ---
 
 ## Usage
@@ -337,6 +350,21 @@ AutoApply/
 | `qualification` | `auto_threshold`, `review_threshold` | Confidence score cutoffs |
 | `llm` | `use_local_llm`, `model`, `ollama_url` | Local LLM settings |
 | `domain_profile` | `name`, `role_buckets`, `reject_roles` | CS vs Finance targeting |
+
+### LLM quality gate (assembly stage)
+
+When using local Ollama, you can enable an assembly gate that reviews role-fit, contact-name safety, and message quality before messages become `ready`:
+
+```yaml
+llm:
+  use_local_llm: true
+  assembly_gate_enabled: true
+  assembly_gate_mode: "strict"   # advisory | strict
+  assembly_gate_min_confidence: 0.75
+```
+
+- `advisory`: adds review reasons, but deterministic logic remains primary.
+- `strict`: off-target or low-quality drafts are pushed to review or skipped before send.
 
 ### `watchlist.yaml`
 

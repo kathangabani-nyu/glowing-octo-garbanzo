@@ -19,6 +19,7 @@ import os
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
 # Ensure the project root is on the path
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -91,22 +92,25 @@ def run_review(config, watchlist, db, dry_run):
 def run_sending(config, watchlist, db, dry_run, send_limit=None):
     """Stage 6: Send approved messages via Gmail API."""
     if dry_run:
-        # Write rendered emails to dry_run_output/ instead of sending
-        output_dir = os.path.join(PROJECT_ROOT, "dry_run_output")
-        os.makedirs(output_dir, exist_ok=True)
-        messages = db.get_ready_messages()
+        # Write drafts to a fresh folder so each run is not mixed with old exports
+        output_dir = Path(PROJECT_ROOT) / "dry_run_output" / "last_run"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for old in output_dir.glob("*.txt"):
+            old.unlink(missing_ok=True)
+        messages = db.get_dry_run_export_messages()
         for msg in messages:
             filename = f"{msg['id']}_{msg['company_name']}_{msg['job_title']}.txt"
             filename = "".join(c if c.isalnum() or c in "._- " else "_" for c in filename)
-            filepath = os.path.join(output_dir, filename)
+            filepath = str(output_dir / filename)
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(f"To: {msg['contact_email']}\n")
                 f.write(f"Subject: {msg['subject']}\n")
+                f.write(f"Status: {msg['status']}\n")
                 f.write(f"Confidence: {msg['confidence_tier']}\n")
                 f.write(f"Resume: {msg['resume_variant']}\n")
                 f.write(f"\n{msg['body']}\n")
             print(f"  [sending][dry-run] Wrote: {filepath}")
-        print(f"  [sending][dry-run] {len(messages)} emails written to {output_dir}/")
+        print(f"  [sending][dry-run] {len(messages)} emails written to {output_dir}{os.sep}")
         return len(messages)
     from src.sender import run as run_sender
     count = run_sender(config, db, dry_run=False, send_limit=send_limit)

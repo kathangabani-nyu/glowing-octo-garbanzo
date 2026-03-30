@@ -500,6 +500,18 @@ def resolve_company_contacts(
     return _dedupe_candidates(candidates)
 
 
+def resolve_contact_for_company(
+    db: Database,
+    company_id: int,
+    domain: str,
+    job_url: str = None,
+) -> List[ContactCandidate]:
+    """Resolve contacts for a company; job-scrape when ``job_url`` is set, else company-wide."""
+    if job_url:
+        return resolve_job_contacts(db, company_id, domain, job_url=job_url)
+    return resolve_company_contacts(db, company_id, domain, careers_url=None)
+
+
 def run(config, db: Database, dry_run: bool = False) -> int:
     del config, dry_run
     total_resolved = 0
