@@ -1,0 +1,8 @@
+2026-03-25 15:45:53,172 [INFO] job_discoverer: [acme.com] Discovering jobs via greenhouse
+2026-03-25 15:45:53,172 [INFO] job_discoverer: [acme.com] Found 1 jobs (1 new)
+2026-03-25 15:45:53,175 [INFO] job_discoverer: [acme.com] Discovering jobs via greenhouse
+2026-03-25 15:45:53,175 [INFO] job_discoverer: [acme.com] Found 0 jobs (0 new)
+2026-03-25 15:46:25,037 [INFO] job_discoverer: [acme.com] Discovering jobs via greenhouse
+2026-03-25 15:46:25,038 [INFO] job_discoverer: [acme.com] Found 1 jobs (1 new)
+2026-03-25 15:46:25,044 [INFO] job_discoverer: [acme.com] Discovering jobs via greenhouse
+2026-03-25 15:46:25,045 [INFO] job_discoverer: [acme.com] Found 0 jobs (0 new)

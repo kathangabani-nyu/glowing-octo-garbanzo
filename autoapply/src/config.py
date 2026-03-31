@@ -1,7 +1,7 @@
 """
 YAML config loader and validation for AutoApply V2.2.
-Loads config.yaml and watchlist.yaml, validates required fields,
-provides typed access via dataclasses.
+Loads config.local.yaml and watchlist.local.yaml by default, validates required
+fields, and provides typed access via dataclasses.
 """
 
 import os
@@ -230,12 +230,12 @@ def _load_yaml(path: str) -> dict:
     return data
 
 
-def load_config(config_path: str = "config.yaml") -> Config:
+def load_config(config_path: str = "config.local.yaml") -> Config:
     data = _load_yaml(config_path)
 
     # Sender is required
     if "sender" not in data:
-        print("ERROR: config.yaml must contain a 'sender' section with 'name' and 'email'.",
+        print("ERROR: config must contain a 'sender' section with 'name' and 'email'.",
               file=sys.stderr)
         sys.exit(1)
 
@@ -279,12 +279,12 @@ def load_config(config_path: str = "config.yaml") -> Config:
     )
 
 
-def load_watchlist(watchlist_path: str = "watchlist.yaml") -> Watchlist:
+def load_watchlist(watchlist_path: str = "watchlist.local.yaml") -> Watchlist:
     data = _load_yaml(watchlist_path)
 
     raw_companies = data.get("companies", [])
     if not raw_companies:
-        print("ERROR: watchlist.yaml must contain a 'companies' list.", file=sys.stderr)
+        print("ERROR: watchlist must contain a 'companies' list.", file=sys.stderr)
         sys.exit(1)
 
     companies = []

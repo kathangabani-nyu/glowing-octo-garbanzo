@@ -1,0 +1,23 @@
+2026-03-25 15:46:25,166 [INFO] review_queue: Queued review #1: reason=pattern_inferred, tier=pattern_inferred
+2026-03-25 15:46:25,166 [INFO] review_queue: Review #1 approved
+2026-03-25 15:46:25,170 [INFO] review_queue: Queued review #1: reason=pattern_inferred, tier=pattern_inferred
+2026-03-25 15:46:25,173 [INFO] review_queue: Queued review #1: reason=pattern_inferred, tier=pattern_inferred
+2026-03-25 15:46:25,173 [INFO] review_queue: Review #1 skipped
+2026-03-25 15:46:25,176 [INFO] review_queue: Queued review #1: reason=pattern_inferred, tier=pattern_inferred
+2026-03-25 15:46:25,177 [INFO] review_queue: Suppressed company domain: testco.com
+2026-03-25 15:46:25,182 [INFO] review_queue: Queued review #1: reason=test, tier=None
+2026-03-25 15:46:25,182 [INFO] review_queue: Review #1 approved
+2026-03-25 15:46:25,182 [INFO] review_queue: Queued review #2: reason=test, tier=None
+2026-03-25 15:46:25,182 [INFO] review_queue: Review #2 approved
+2026-03-25 15:46:25,182 [INFO] review_queue: Queued review #3: reason=test, tier=None
+2026-03-25 15:46:25,182 [INFO] review_queue: Review #3 approved
+2026-03-25 15:46:25,183 [INFO] review_queue: Queued review #4: reason=test, tier=None
+2026-03-25 15:46:25,183 [INFO] review_queue: Review #4 skipped
+2026-03-25 15:46:25,186 [INFO] review_queue: Queued review #1: reason=pattern_inferred, tier=None
+2026-03-25 15:46:25,186 [INFO] review_queue: Review #1 approved
+2026-03-25 15:46:25,189 [INFO] review_queue: Queued review #1: reason=pattern_inferred, tier=pattern_inferred
+2026-03-25 15:46:25,192 [INFO] review_queue: Queued review #1: reason=test, tier=None
+2026-03-25 15:46:25,195 [INFO] review_queue: Queued review #1: reason=borderline_fit, tier=None
+2026-03-25 15:46:25,196 [INFO] review_queue: Review #1 skipped
+2026-03-25 15:46:25,199 [INFO] review_queue: Queued review #1: reason=catch_all_guess, tier=None
+2026-03-25 15:46:25,199 [INFO] review_queue: Suppressed email: jane@testco.com

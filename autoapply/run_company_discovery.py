@@ -35,8 +35,8 @@ def main():
     )
     parser.add_argument(
         "--config",
-        default="config.yaml",
-        help="Path to config.yaml (default: config.yaml)",
+        default="config.local.yaml",
+        help="Path to config file (default: config.local.yaml)",
     )
     parser.add_argument(
         "--cities",

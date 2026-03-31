@@ -83,7 +83,7 @@ def validate_config_authoring(config: Config, watchlist: Watchlist) -> Preflight
     return PreflightReport(errors=errors, warnings=warnings, notes=notes)
 
 
-def run(config_path: str = "config.yaml", watchlist_path: str = "watchlist.yaml") -> int:
+def run(config_path: str = "config.local.yaml", watchlist_path: str = "watchlist.local.yaml") -> int:
     config = load_config(config_path)
     watchlist = load_watchlist(watchlist_path)
     report = validate_config_authoring(config, watchlist)
@@ -111,10 +111,10 @@ def run(config_path: str = "config.yaml", watchlist_path: str = "watchlist.yaml"
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Validate config.yaml and watchlist.yaml authoring quality."
+        description="Validate config and watchlist authoring quality."
     )
-    parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
-    parser.add_argument("--watchlist", default="watchlist.yaml", help="Path to watchlist.yaml")
+    parser.add_argument("--config", default="config.local.yaml", help="Path to config file")
+    parser.add_argument("--watchlist", default="watchlist.local.yaml", help="Path to watchlist file")
     args = parser.parse_args()
     raise SystemExit(run(config_path=args.config, watchlist_path=args.watchlist))
 

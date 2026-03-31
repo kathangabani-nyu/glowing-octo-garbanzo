@@ -1,0 +1,30 @@
+2026-03-25 15:45:53,136 [DEBUG] llm_extractor: Hallucination guard: 'Infrastructure' not found in posting text
+2026-03-25 15:45:53,139 [DEBUG] llm_extractor: Hallucination guard: tech 'Rust' not in posting
+2026-03-25 15:45:53,141 [DEBUG] llm_extractor: Hallucination guard: tech 'TensorFlow' not in posting
+2026-03-25 15:45:53,142 [DEBUG] llm_extractor: Hallucination guard: tech 'recommendation systems' not in user skills
+2026-03-25 15:45:53,145 [DEBUG] llm_extractor: Hallucination guard: blurb word coverage 40% < 50%: 'Leading provider of quantum computing hardware'
+2026-03-25 15:45:53,150 [DEBUG] llm_extractor: Failed to parse LLM response as JSON: This is not JSON at all
+2026-03-25 15:45:53,154 [DEBUG] llm_extractor: Hallucination guard: 'Quantum Division' not found in posting text
+2026-03-25 15:45:53,154 [DEBUG] llm_extractor: LLM extraction: team=Data Platform, tech=Python, blurb=None
+2026-03-25 15:45:53,155 [INFO] llm_extractor: LLM unavailable, falling back to regex extractor
+2026-03-25 15:45:53,157 [DEBUG] llm_extractor: Hallucination guard: 'Fake Team' not found in posting text
+2026-03-25 15:45:53,157 [DEBUG] llm_extractor: LLM extraction: team=Data Platform, tech=PyTorch, blurb=analytics solutions for enterprises
+2026-03-25 15:45:53,158 [DEBUG] llm_extractor: LLM extraction: team=Data Platform, tech=Python, blurb=cloud-based analytics solutions
+2026-03-25 15:45:53,159 [DEBUG] llm_extractor: Failed to parse LLM response as JSON: I can't help with that
+2026-03-25 15:45:53,159 [WARNING] llm_extractor: LLM returned unparseable response, falling back to regex
+2026-03-25 15:45:53,163 [INFO] llm_extractor: Ollama running but model 'llama3.1:8b' not found. Available: ['mistral:7b']
+2026-03-25 15:46:25,099 [DEBUG] llm_extractor: Hallucination guard: 'Infrastructure' not found in posting text
+2026-03-25 15:46:25,105 [DEBUG] llm_extractor: Hallucination guard: tech 'Rust' not in posting
+2026-03-25 15:46:25,107 [DEBUG] llm_extractor: Hallucination guard: tech 'TensorFlow' not in posting
+2026-03-25 15:46:25,109 [DEBUG] llm_extractor: Hallucination guard: tech 'recommendation systems' not in user skills
+2026-03-25 15:46:25,113 [DEBUG] llm_extractor: Hallucination guard: blurb word coverage 40% < 50%: 'Leading provider of quantum computing hardware'
+2026-03-25 15:46:25,123 [DEBUG] llm_extractor: Failed to parse LLM response as JSON: This is not JSON at all
+2026-03-25 15:46:25,129 [DEBUG] llm_extractor: Hallucination guard: 'Quantum Division' not found in posting text
+2026-03-25 15:46:25,129 [DEBUG] llm_extractor: LLM extraction: team=Data Platform, tech=Python, blurb=None
+2026-03-25 15:46:25,131 [INFO] llm_extractor: LLM unavailable, falling back to regex extractor
+2026-03-25 15:46:25,133 [DEBUG] llm_extractor: Hallucination guard: 'Fake Team' not found in posting text
+2026-03-25 15:46:25,133 [DEBUG] llm_extractor: LLM extraction: team=Data Platform, tech=PyTorch, blurb=analytics solutions for enterprises
+2026-03-25 15:46:25,135 [DEBUG] llm_extractor: LLM extraction: team=Data Platform, tech=Python, blurb=cloud-based analytics solutions
+2026-03-25 15:46:25,137 [DEBUG] llm_extractor: Failed to parse LLM response as JSON: I can't help with that
+2026-03-25 15:46:25,137 [WARNING] llm_extractor: LLM returned unparseable response, falling back to regex
+2026-03-25 15:46:25,144 [INFO] llm_extractor: Ollama running but model 'llama3.1:8b' not found. Available: ['mistral:7b']

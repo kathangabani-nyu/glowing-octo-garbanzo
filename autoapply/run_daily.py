@@ -194,12 +194,12 @@ def main():
         help="Override max sends for this run (useful for testing)"
     )
     parser.add_argument(
-        "--config", default="config.yaml",
-        help="Path to config.yaml (default: config.yaml)"
+        "--config", default="config.local.yaml",
+        help="Path to config file (default: config.local.yaml)"
     )
     parser.add_argument(
-        "--watchlist", default="watchlist.yaml",
-        help="Path to watchlist.yaml (default: watchlist.yaml)"
+        "--watchlist", default="watchlist.local.yaml",
+        help="Path to watchlist file (default: watchlist.local.yaml)"
     )
 
     args = parser.parse_args()

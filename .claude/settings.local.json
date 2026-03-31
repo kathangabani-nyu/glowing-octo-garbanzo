@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/katha/OneDrive/Desktop/AutoApply -type f \\\\\\(-name *design* -o -name *Design* \\\\\\))"
+    ]
+  }
+}
