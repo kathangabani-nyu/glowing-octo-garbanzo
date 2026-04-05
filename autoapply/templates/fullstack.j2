@@ -1,17 +1,15 @@
 Hi {{ greeting_name }},
 
-I wanted to reach out about the {{ job_title }} role at {{ company_name }} — it sounds like exactly the kind of end-to-end product and engineering work I enjoy most, and I think my background is a strong fit.
+I'm Kathan Gabani, an MS Computer Engineering student at NYU, and I wanted to reach out because the {{ job_title }} role at {{ company_name }} caught my attention.
 
-I'm a Master's student in Computer Engineering at NYU, graduating in May 2026. Most recently, I worked as a Fullstack AI/ML Engineer Intern at RoughCut, where I led a production rewrite of an AI-driven video editing stack. I built modular FastAPI backend services, designed RESTful APIs, implemented Redis-based async workflows, and deployed containerized services with CI/CD — all while keeping the user-facing experience smooth and responsive. I've also built event-driven architectures and worked extensively with AWS (Lambda, S3, SQS) in serverless environments.
+{% if team_or_product %}What especially stood out to me is the chance to contribute to {{ team_or_product }}, and how focused your team seems on shipping end-to-end product experiences reliably.{% elif company_blurb %}What especially stood out to me is how {{ company_blurb|lower }}, and that product-plus-systems balance is the kind of work I find most interesting.{% else %}What especially stood out to me is how focused {{ company_name }} appears to be on end-to-end engineering quality and production reliability.{% endif %}
 
-{% if team_or_product %}The scope of {{ team_or_product }} especially resonated with me — I love working across the stack on products where the frontend, backend, and infrastructure all need to come together cleanly.{% elif company_blurb %}I was also drawn to the role by the chance to work with a team that {{ company_blurb|lower }}.{% endif %}
+{% if key_technology %}In my recent work, I've been building backend AI systems with FastAPI and Redis in production, and I've also worked on ML infrastructure projects involving {{ key_technology }}. So when I came across this role, it felt like a natural fit with the direction I want to keep growing in.{% else %}In my recent work, I've been building backend AI systems with FastAPI and Redis in production, and I've also worked on ML infrastructure projects using ONNX, Kubernetes, Airflow, and Ray. So when I came across this role, it felt like a natural fit with the direction I want to keep growing in.{% endif %}
 
-{% if key_technology %}I've recently shipped end-to-end work involving {{ key_technology }}, and I enjoy connecting the implementation details all the way through to the product experience — making sure the system works well, not just that each piece works in isolation.{% else %}I'm comfortable working across the full stack — backend services, API design, frontend integrations, cloud infrastructure, and async architectures — and I care about shipping polished work that users actually enjoy using.{% endif %}
-
-I've attached my resume for reference. You can also find my projects here:
-GitHub: https://github.com/kathangabani-nyu
+I've attached my resume here for reference, and you can also find a few of my projects on my GitHub.
 
 Best,
-{{ sender_name }}
-{{ sender_email }}
+Kathan Gabani
+LinkedIn: https://www.linkedin.com/in/kathangabani/
+GitHub: https://github.com/kathangabani-nyu
 {% if sender_signature %}{{ sender_signature }}{% endif %}

@@ -15,6 +15,7 @@ import base64
 import html
 import os
 import random
+import re
 import time
 from datetime import datetime
 from email.utils import formataddr
@@ -29,6 +30,7 @@ from src.config import Config
 from src.utils import get_logger
 
 logger = get_logger("sender")
+URL_RE = re.compile(r"(https?://[^\s<]+|www\.[^\s<]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s<]*)")
 
 # Gmail API scopes
 SCOPES = ["https://www.googleapis.com/auth/gmail.send",
@@ -120,11 +122,30 @@ def _check_safety_stops(config: Config, db: Database) -> Optional[str]:
     return None
 
 
+def _linkify_line(line: str) -> str:
+    """Escape line content and convert URLs to clickable anchors."""
+    parts = []
+    last = 0
+    for match in URL_RE.finditer(line or ""):
+        start, end = match.span()
+        if start > last:
+            parts.append(html.escape(line[last:start]))
+        url = match.group(0)
+        href = url if url.startswith(("http://", "https://")) else f"https://{url}"
+        safe_href = html.escape(href, quote=True)
+        safe_text = html.escape(url)
+        parts.append(f'<a href="{safe_href}" target="_blank" rel="noopener noreferrer">{safe_text}</a>')
+        last = end
+    if last < len(line or ""):
+        parts.append(html.escape(line[last:]))
+    return "".join(parts)
+
+
 def _render_html_body(body: str) -> str:
     """Render a simple HTML version of the plain-text email body."""
     paragraphs = []
     for block in (body or "").strip().split("\n\n"):
-        lines = [html.escape(line.strip()) for line in block.splitlines() if line.strip()]
+        lines = [_linkify_line(line.strip()) for line in block.splitlines() if line.strip()]
         if not lines:
             continue
         paragraphs.append(f"<p>{'<br>'.join(lines)}</p>")

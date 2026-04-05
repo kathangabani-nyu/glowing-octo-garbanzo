@@ -1,406 +1,173 @@
 # AutoApply
 
-**Fully automated, quality-first job outreach pipeline.** AutoApply discovers open roles from company career pages, filters them against your profile, finds the right people to contact, writes personalized emails from Jinja2 templates, sends via Gmail with pacing and follow-ups, and reports results — all locally, all configurable.
+**AI-assisted, human-approved job outreach.** You use an coding agent (Cursor, Claude Code, etc.) with a **private prompt** that describes your background and rules. The agent researches real roles and people, drafts personalized emails, and uses a small **Python toolkit** on your machine for verification, deduplication, Gmail sending, and a local SQLite log.
 
-> Built for new grads and career switchers who want to reach hiring teams directly, not just submit into the void.
-
----
-
-## How It Works
-
-```
-                            AutoApply Pipeline
- ┌─────────────────────────────────────────────────────────────────────┐
- │                                                                     │
- │   watchlist.yaml         config.yaml          templates/*.j2        │
- │        │                      │                      │              │
- │        v                      v                      v              │
- │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐    │
- │  │   1.     │  │   2.     │  │   3.     │  │   4.             │    │
- │  │ DISCOVER │─>│  FILTER  │─>│ CONTACTS │─>│    ASSEMBLE      │    │
- │  │   JOBS   │  │   JOBS   │  │          │  │    EMAILS        │    │
- │  └──────────┘  └──────────┘  └──────────┘  └──────────────────┘    │
- │   Greenhouse     Title,        SMTP           Role-specific         │
- │   Lever          skills,       verified       Jinja2 templates      │
- │   Ashby          location,     recruiter &    + job context          │
- │   Workday        seniority     hiring mgr                           │
- │   SmartRecr.     filtering     emails                               │
- │        │              │             │               │               │
- │        v              v             v               v               │
- │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐    │
- │  │   5.     │  │   6.     │  │   7.     │  │   8.             │    │
- │  │  REVIEW  │─>│   SEND   │─>│ FOLLOWUP │─>│    REPORT        │    │
- │  │  QUEUE   │  │          │  │          │  │                  │    │
- │  └──────────┘  └──────────┘  └──────────┘  └──────────────────┘    │
- │   Human-in-     Gmail API      Reply          Daily metrics,        │
- │   the-loop      OAuth2,        detection,     bounce tracking,      │
- │   approval      daily caps,    scheduled      CSV exports            │
- │   for medium    pacing &       follow-ups                           │
- │   confidence    delays         (Day 3, 7)                           │
- │                                                                     │
- └─────────────────────────────────────────────────────────────────────┘
-```
-
-### Company Auto-Discovery (V2.2)
-
-```
-  External Sources                    Staging                      Pipeline
- ┌──────────────┐     ┌─────────────────────────────┐     ┌──────────────────┐
- │  YC / Work   │     │    discovered_companies      │     │                  │
- │  at a Startup│────>│                              │     │   companies      │
- │              │     │  ┌─────────┐  ┌───────────┐  │     │   table          │
- ├──────────────┤     │  │  Dedup  │─>│    ATS    │  │     │                  │
- │  BuiltIn     │────>│  │ against │  │ Detection │──────> │  Auto-promoted   │
- │  City Lists  │     │  │ pipeline│  │ (careers  │  │     │  companies join  │
- ├──────────────┤     │  │ + suppr.│  │  page     │  │     │  the daily run   │
- │  (More V2+)  │     │  │  list   │  │  scan)    │  │     │                  │
- └──────────────┘     │  └─────────┘  └───────────┘  │     └──────────────────┘
-                      └─────────────────────────────┘
-```
+The older **fully automated pipeline** (`run_daily.py`: ATS discovery → filter → assemble → send) is still in the repo for advanced use, but the default workflow is: **prompt + toolkit + your approval**.
 
 ---
 
-## Features
+## How the new workflow works
 
-| Stage | What it does |
-|-------|-------------|
-| **Discovery** | Pulls job listings from Greenhouse, Lever, Ashby, Workday, and SmartRecruiters APIs/boards for each watchlist company |
-| **Filtering** | Scores jobs against configurable title keywords, exclusion lists, skills, seniority, location, visa requirements, and experience bands |
-| **Contacts** | Finds recruiter and hiring manager emails via name permutation + SMTP verification (no paid APIs needed) |
-| **Assembly** | Renders personalized emails from role-specific Jinja2 templates with extracted job context (team, technology, company info) |
-| **Review Queue** | Human-in-the-loop approval for medium-confidence messages; high-confidence sends automatically |
-| **Sending** | Gmail OAuth2 with daily caps (default 12/day), randomized delays (45-90s), and business-hours pacing |
-| **Follow-ups** | Reply detection via Gmail API; automated follow-up emails on Day 3 and Day 7 if no response |
-| **Reporting** | Daily metrics, bounce rate tracking, CSV exports, and safety circuit breakers |
+1. **You** maintain `prompts/daily_outreach.md` (gitignored) with your story, constraints, and email structure — start from `prompts/daily_outreach.example.md`.
+2. **Agent** finds companies and contacts using public sources, runs checks through `toolkit` / `ToolkitDB`, and drafts messages.
+3. **You** review drafts; only after you say to send does the agent call `send_email()` and `record_send()`.
 
-### Additional Capabilities
+Mechanical pieces live under `autoapply/`:
 
-- **Domain profiles** — Switch between CS/ML and Finance/IB targeting via `config.domain_profile`
-- **Company auto-discovery** — Automatically find companies hiring from YC, BuiltIn, and other sources
-- **ATS detection** — Scans company career pages to identify which ATS they use
-- **Suppression & cooldowns** — Per-person (90 day) and per-company-role (30 day) cooldowns prevent duplicate outreach
-- **Bounce protection** — Automatically pauses sending if bounce rate exceeds threshold
-- **Local LLM integration** — Uses Ollama (Llama 3.1) for job detail extraction; no cloud API keys needed
-- **SQLite database** — All state tracked locally; zero external dependencies beyond Gmail
+| Piece | Role |
+|--------|------|
+| `toolkit.py` | `verify_email`, `generate_email_guesses`, `send_email`, `check_*`, `record_send`, … |
+| `toolkit_db.py` | SQLite: outreach log, suppressions, domain patterns |
+| `src/sender.py` | Gmail API: MIME build, resume attachment, send |
+| `block_company.py` | CLI to suppress a company domain (e.g. interview in progress) |
+
+Database file (local, not committed): e.g. `autoapply/autoapply.db` (see `.gitignore`).
 
 ---
 
 ## Requirements
 
 - **Python 3.10+**
-- **Ollama** with `llama3.1:8b` model (for job detail extraction)
-- **Google Cloud project** with Gmail API enabled + OAuth Desktop credentials
-- **Git** (for version control)
+- **Google Cloud** project with **Gmail API** enabled and **OAuth desktop** credentials
+- **Git**
+
+Optional (only if you use the **legacy** `run_daily.py` pipeline): **Ollama** with a local model for job-detail extraction — see [ollama.com](https://ollama.com).
 
 ---
 
-## Installation
+## Quick setup (new users)
 
-### 1. Clone the repository
+### 1. Clone and enter the repo
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/AutoApply.git
-cd AutoApply/autoapply
+cd AutoApply
 ```
 
-### 2. Create and activate a virtual environment
+### 2. Virtual environment and dependencies
 
 **Windows:**
-```bash
+
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
-```
-
-**macOS / Linux:**
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Install Ollama (for local LLM)
-
-Download from [ollama.com](https://ollama.com), then pull the model:
+**macOS / Linux:**
 
 ```bash
-ollama pull llama3.1:8b
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Verify it's running:
-```bash
-ollama list
-```
+### 3. Gmail API credentials
 
-### 5. Set up Gmail API credentials
+1. In [Google Cloud Console](https://console.cloud.google.com/), enable **Gmail API** for a project.
+2. Create **OAuth client ID** → application type **Desktop app**.
+3. Download the JSON and save it as **`autoapply/credentials.json`**.
+4. First time you send mail, complete the browser consent flow; **`autoapply/token.json`** is created automatically.
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project (or select an existing one)
-3. Enable the **Gmail API**:
-   - Navigate to **APIs & Services > Library**
-   - Search for "Gmail API" and click **Enable**
-4. Create OAuth credentials:
-   - Go to **APIs & Services > Credentials**
-   - Click **Create Credentials > OAuth client ID**
-   - Application type: **Desktop app**
-   - Download the JSON file
-5. Rename it to `credentials.json` and place it in the `autoapply/` directory
-6. On first run, a browser window will open for OAuth consent — this creates `token.json` automatically
+Both files are listed in `.gitignore` — do not commit them.
 
-> **Important:** `credentials.json` and `token.json` are in `.gitignore` and should never be committed.
+### 4. Private files you must create locally (not in Git)
 
-### 6. Configure your profile
+These paths are ignored or should stay local so the public repo never contains your identity, targets, or tokens:
 
-Copy the example configs and edit with your details:
+| File / directory | Purpose |
+|------------------|---------|
+| `prompts/daily_outreach.md` | Your full agent instructions (copy from `prompts/daily_outreach.example.md`) |
+| `autoapply/credentials.json` | Gmail OAuth client secret JSON |
+| `autoapply/token.json` | Gmail OAuth token (created after first auth) |
+| `autoapply/config.yaml` | Sender identity and settings for legacy pipeline / tooling that reads config |
+| `autoapply/watchlist.yaml` | Company list for legacy pipeline |
+| `autoapply/*.db` | SQLite outreach database |
+| `autoapply/resumes/` | PDF resume(s) |
+| `logs/` | Optional local logs or exports at repo root |
 
-```bash
-copy config.example.yaml config.yaml        # Windows
-cp config.example.yaml config.yaml          # macOS/Linux
+**Minimum for the prompt + toolkit workflow:** `credentials.json`, `token.json` (after first auth), `prompts/daily_outreach.md`, and a resume file whose path you pass into `send_email(..., resume_path=...)`.
 
-copy watchlist.example.yaml watchlist.yaml
-cp watchlist.example.yaml watchlist.yaml
-```
-
-Edit `config.yaml`:
-```yaml
-sender:
-  name: "Your Name"
-  email: "your.email@gmail.com"
-  signature: ""  # Optional: "Name | School | email"
-
-job_targets:
-  title_keywords:
-    - "software engineer"
-    - "machine learning engineer"
-  title_exclude:
-    - "intern"
-    - "senior"
-    - "director"
-  skills:
-    - "Python"
-    - "PyTorch"
-  # ... see config.example.yaml for all options
-
-resume_path: "resumes/your_resume.pdf"
-```
-
-Edit `watchlist.yaml` with your target companies:
-```yaml
-companies:
-  - name: "Anthropic"
-    domain: "anthropic.com"
-    priority: 1
-    ats: "greenhouse"
-    slug: "anthropic"
-    careers_url: "https://anthropic.com/careers"
-    jobs_url: "https://boards.greenhouse.io/anthropic"
-    job_family_focus: "engineering"
-    notes: "AI safety research lab"
-```
-
-### 7. Add your resume
+**Templates for YAML config:**
 
 ```bash
-mkdir resumes
-# Copy your resume PDF(s) into the resumes/ directory
-# Update resume_path and resume_variants in config.yaml
+cp autoapply/config.example.yaml autoapply/config.yaml
+cp autoapply/watchlist.example.yaml autoapply/watchlist.yaml
 ```
 
-### 8. Choose a profile (CS vs Finance)
+Edit `config.yaml` with your sender name, email, and `resume_path`.
 
-- **CS/ML profile** (default):
-  - `python run_daily.py --config config.local.yaml --watchlist watchlist.local.yaml`
-- **Finance profile**:
-  - `python run_daily.py --config config_finance.yaml --watchlist watchlist.local.yaml`
+### 5. Run an outreach session
 
-Profile behavior is controlled by `domain_profile` and `job_targets`.
-Important gate:
-- `job_targets.skill_only_requires_engineering_title`  
-  - `true`: skill-only matches still require an engineering-like title (recommended for CS profile)
-  - `false`: allow non-engineering titles to qualify on skills (used by finance profile)
+1. Open `prompts/daily_outreach.md` in your editor.
+2. Start an agent chat with that file as context (or paste its contents).
+3. Ensure the agent’s Python cwd is the **repo root** (or adjust `sys.path` / DB path as in the example prompt).
+
+The example prompt shows importing from `autoapply` and opening `ToolkitDB` — match paths to where you run code from.
 
 ---
 
-## Usage
+## Toolkit usage (summary)
 
-### Run the full pipeline
+From repository root, typical bootstrap:
+
+```python
+import sys
+sys.path.insert(0, "autoapply")
+from toolkit import *
+from toolkit_db import ToolkitDB
+
+db = ToolkitDB("autoapply/autoapply.db")
+```
+
+Then use `check_already_contacted`, `check_company_contacted_recently`, `verify_email`, `generate_email_guesses`, `send_email`, and `record_send` as described in `prompts/daily_outreach.example.md`.
+
+**Dry run:** `send_email(..., dry_run=True)` builds the message without sending.
+
+**Block a company** (optional):
 
 ```bash
 cd autoapply
-python run_daily.py
-```
-
-### Dry run (no emails sent)
-
-```bash
-python run_daily.py --dry-run
-```
-
-### Run a single stage
-
-```bash
-python run_daily.py --stage discovery
-python run_daily.py --stage filtering --dry-run
-python run_daily.py --stage contacts
-python run_daily.py --stage sending --send-limit 3
-```
-
-### Available stages
-
-| Stage | Flag | Description |
-|-------|------|-------------|
-| `discovery` | `--stage discovery` | Pull jobs from ATS endpoints |
-| `filtering` | `--stage filtering` | Score and filter jobs |
-| `contacts` | `--stage contacts` | Find recruiter/hiring manager emails |
-| `assembly` | `--stage assembly` | Build email messages from templates |
-| `review` | `--stage review` | Process review queue |
-| `sending` | `--stage sending` | Send approved emails via Gmail |
-| `followups` | `--stage followups` | Check replies and send follow-ups |
-| `reporting` | `--stage reporting` | Generate daily report |
-
-### Company auto-discovery
-
-```bash
-python run_company_discovery.py --sources yc,builtin --dry-run   # Preview
-python run_company_discovery.py --sources yc                      # Discover + stage
-python run_company_discovery.py --promote                         # Promote to pipeline
-```
-
-### Review queue
-
-```bash
-python -m src.review_cli
-```
-
-### Reports
-
-```bash
-python -m src.report_cli
+python block_company.py --domain example.com --company "Example Inc" --reason "Interview scheduled"
 ```
 
 ---
 
-## Project Structure
+## Legacy automated pipeline (optional)
+
+End-to-end ATS discovery, filtering, templated assembly, and scheduled sending:
+
+```bash
+cd autoapply
+python run_daily.py --help
+```
+
+That path expects `config.yaml`, `watchlist.yaml`, Ollama (if using local LLM extraction), and the same Gmail credentials. See `config.example.yaml` and `watchlist.example.yaml` for shape.
+
+---
+
+## Project layout (abbreviated)
 
 ```
 AutoApply/
 ├── README.md
+├── requirements.txt              # wraps autoapply/requirements.txt
+├── prompts/
+│   ├── daily_outreach.example.md # safe to commit; copy → daily_outreach.md
+│   └── daily_outreach.md         # gitignored — your private prompt
 ├── autoapply/
-│   ├── config.example.yaml          # Template config (safe to commit)
-│   ├── config.yaml                  # Your config (gitignored)
-│   ├── watchlist.example.yaml       # Template watchlist (safe to commit)
-│   ├── watchlist.yaml               # Your watchlist (gitignored)
-│   ├── credentials.json             # Gmail OAuth creds (gitignored)
-│   ├── token.json                   # Gmail OAuth token (gitignored)
-│   ├── requirements.txt
-│   ├── run_daily.py                 # Main pipeline orchestrator
-│   ├── run_company_discovery.py     # Auto-discovery CLI
-│   ├── src/
-│   │   ├── job_discoverer.py        # ATS API integrations
-│   │   ├── job_filter.py            # Scoring & filtering engine
-│   │   ├── contact_discoverer.py    # Email permutation + SMTP verify
-│   │   ├── email_assembler.py       # Jinja2 template rendering
-│   │   ├── review_queue.py          # Human review system
-│   │   ├── sender.py                # Gmail API sender with pacing
-│   │   ├── followup_manager.py      # Reply detection & follow-ups
-│   │   ├── reporter.py              # Metrics & reporting
-│   │   ├── company_discoverer.py    # Auto-discovery engine
-│   │   ├── db.py                    # SQLite database layer
-│   │   ├── config.py                # Config/watchlist loaders
-│   │   ├── llm_extractor.py         # Ollama LLM integration
-│   │   ├── detail_extractor.py      # Job detail parsing
-│   │   ├── permutator.py            # Email permutation patterns
-│   │   ├── smtp_verifier.py         # SMTP email verification
-│   │   └── utils.py                 # Logging, rate limiting
-│   ├── templates/
-│   │   ├── default.j2               # General outreach template
-│   │   ├── software.j2              # SWE-specific template
-│   │   ├── ml.j2                    # ML/AI role template
-│   │   ├── research.j2              # Research role template
-│   │   ├── fullstack.j2             # Fullstack role template
-│   │   ├── followup_1.j2            # Day 3 follow-up
-│   │   └── followup_2.j2            # Day 7 follow-up
-│   └── tests/
-│       ├── test_job_discoverer.py
-│       ├── test_job_filter.py
-│       ├── test_email_assembler.py
-│       ├── test_sender.py
-│       └── ...
-└── logs/
-    └── reports/                     # Daily report artifacts
+│   ├── toolkit.py
+│   ├── toolkit_db.py
+│   ├── block_company.py
+│   ├── credentials.json          # gitignored — you create
+│   ├── token.json                # gitignored — created on first OAuth
+│   ├── config.example.yaml
+│   ├── watchlist.example.yaml
+│   ├── run_daily.py              # legacy orchestrator
+│   ├── src/                      # Gmail, SMTP verify, DB, …
+│   └── templates/                # Jinja2 — used by legacy assembler
+└── logs/                         # gitignored if under repo root
 ```
-
----
-
-## Configuration Reference
-
-### `config.yaml`
-
-| Section | Key Fields | Description |
-|---------|-----------|-------------|
-| `sender` | `name`, `email`, `signature` | Your identity for outgoing emails |
-| `sending` | `max_initial_per_day`, `min_delay_seconds` | Sending caps and pacing |
-| `safety` | `max_bounce_rate`, `bounce_window` | Circuit breaker thresholds |
-| `cooldowns` | `person_days`, `company_job_family_days` | Anti-spam cooldown periods |
-| `job_targets` | `title_keywords`, `title_exclude`, `skills`, `seniority`, `locations` | What jobs to target |
-| `qualification` | `auto_threshold`, `review_threshold` | Confidence score cutoffs |
-| `llm` | `use_local_llm`, `model`, `ollama_url` | Local LLM settings |
-| `domain_profile` | `name`, `role_buckets`, `reject_roles` | CS vs Finance targeting |
-
-### LLM quality gate (assembly stage)
-
-When using local Ollama, you can enable an assembly gate that reviews role-fit, contact-name safety, and message quality before messages become `ready`:
-
-```yaml
-llm:
-  use_local_llm: true
-  assembly_gate_enabled: true
-  assembly_gate_mode: "strict"   # advisory | strict
-  assembly_gate_min_confidence: 0.75
-```
-
-- `advisory`: adds review reasons, but deterministic logic remains primary.
-- `strict`: off-target or low-quality drafts are pushed to review or skipped before send.
-
-### `watchlist.yaml`
-
-Each company entry:
-```yaml
-- name: "Company Name"
-  domain: "company.com"
-  priority: 1-5          # 1 = highest priority
-  ats: "greenhouse"      # greenhouse | lever | ashby | workday | smartrecruiters
-  slug: "company-slug"   # ATS board identifier
-  careers_url: "https://company.com/careers"
-  jobs_url: "https://boards.greenhouse.io/company"
-  job_family_focus: "engineering"  # Optional: filter to specific team
-  notes: "Any notes"
-```
-
-### Supported ATS Platforms
-
-| Platform | Job URL Pattern |
-|----------|----------------|
-| Greenhouse | `boards.greenhouse.io/{slug}` |
-| Lever | `jobs.lever.co/{slug}` |
-| Ashby | `jobs.ashbyhq.com/{slug}` |
-| Workday | `{instance}.wd{N}.myworkdayjobs.com/{board}` |
-| SmartRecruiters | `jobs.smartrecruiters.com/{slug}` |
-
----
-
-## Safety & Ethics
-
-- **Daily cap**: Default 12 initial emails/day — respectful volume
-- **Bounce protection**: Auto-pauses if bounce rate exceeds 5%
-- **Cooldowns**: 90-day per-person and 30-day per-company-role cooldowns
-- **Suppression list**: Opted-out or dismissed contacts are permanently suppressed
-- **Business hours**: Sends only during 8 AM - 6 PM window
-- **CAN-SPAM compliance**: Real identity, honest subject lines, opt-out respected
 
 ---
 
@@ -410,6 +177,12 @@ Each company entry:
 cd autoapply
 pytest
 ```
+
+---
+
+## Safety & ethics
+
+Use conservative volume, real identity, accurate subjects, and honor opt-outs. The toolkit records sends and supports suppressions so you do not double-contact people or domains. You remain responsible for compliance with applicable law and platform terms.
 
 ---
 

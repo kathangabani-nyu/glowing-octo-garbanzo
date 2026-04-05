@@ -1,17 +1,15 @@
 Hi {{ greeting_name }},
 
-I wanted to reach out about the {{ job_title }} role at {{ company_name }} because it immediately stood out to me as a role that matches both my experience and the direction I want to take full-time.
+I'm Kathan Gabani, an MS Computer Engineering student at NYU, and I wanted to reach out because the {{ job_title }} role at {{ company_name }} caught my attention.
 
-I'm a Master's student in Computer Engineering at NYU, graduating in May 2026, and I'm currently looking for full-time opportunities. What caught my attention here is how closely this role lines up with the work I've already done and the skill set I've been building.
+{% if team_or_product %}What especially stood out to me is the chance to contribute to {{ team_or_product }}, and how focused your team seems on shipping practical systems reliably.{% elif company_blurb %}What especially stood out to me is how {{ company_blurb|lower }}, and that kind of product-minded engineering work is what I find most interesting.{% else %}What especially stood out to me is how focused {{ company_name }} appears to be on practical engineering that translates into real production impact.{% endif %}
 
-{% if team_or_product %}The opportunity to contribute to {{ team_or_product }} especially interested me.{% elif company_blurb %}I was also excited by the chance to work with a team that {{ company_blurb|lower }}.{% endif %}
+{% if key_technology %}In my recent work, I've been building backend AI systems with FastAPI and Redis in production, and I've also worked on ML infrastructure projects involving {{ key_technology }}. So when I came across this role, it felt like a natural fit with the direction I want to keep growing in.{% else %}In my recent work, I've been building backend AI systems with FastAPI and Redis in production, and I've also worked on ML infrastructure projects using ONNX, Kubernetes, Airflow, and Ray. So when I came across this role, it felt like a natural fit with the direction I want to keep growing in.{% endif %}
 
-{% if key_technology %}Recently, a meaningful part of my work has involved {{ key_technology }}, and I've really enjoyed applying that experience to real, production-oriented problems.{% else %}Recently, a meaningful part of my work has involved building practical projects, solving technical problems end to end, and getting up to speed quickly in unfamiliar areas.{% endif %}
-
-I've attached my resume for reference. You can also find my projects and relevant work here:
-GitHub: https://github.com/kathangabani-nyu
+I've attached my resume here for reference, and you can also find a few of my projects on my GitHub.
 
 Best,
-{{ sender_name }}
-{{ sender_email }}
+Kathan Gabani
+LinkedIn: https://www.linkedin.com/in/kathangabani/
+GitHub: https://github.com/kathangabani-nyu
 {% if sender_signature %}{{ sender_signature }}{% endif %}

@@ -3,9 +3,13 @@ credentials.json
 token.json
 
 # Local overrides (real sender, watchlist, resumes — not for Git)
+config.yaml
+watchlist.yaml
 config.local.yaml
 watchlist.local.yaml
 config_finance.yaml
+scratch_config.yaml
+scratch_watchlist.yaml
 
 # Database
 *.db

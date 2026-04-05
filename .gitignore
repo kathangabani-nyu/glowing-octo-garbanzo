@@ -1,0 +1,11 @@
+# Personal prompt (copy from prompts/daily_outreach.example.md)
+prompts/daily_outreach.md
+
+# Local outreach logs and artifacts at repo root
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

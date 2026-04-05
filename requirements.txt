@@ -1,0 +1,3 @@
+# Install from repository root:
+#   pip install -r requirements.txt
+-r autoapply/requirements.txt

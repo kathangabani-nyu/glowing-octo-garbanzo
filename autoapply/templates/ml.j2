@@ -1,17 +1,15 @@
 Hi {{ greeting_name }},
 
-I saw the {{ job_title }} role at {{ company_name }} and wanted to reach out — it's exactly the kind of applied ML work I've been building toward and want to do full-time.
+I'm Kathan Gabani, an MS Computer Engineering student at NYU, and I wanted to reach out because the {{ job_title }} role at {{ company_name }} caught my attention.
 
-I'm a Master's student in Computer Engineering at NYU, graduating in May 2026, with a strong focus on applied machine learning and production ML systems. At my most recent internship, I worked as a Fullstack AI/ML Engineer where I built and deployed end-to-end ML pipelines — from model experimentation to containerized production services handling real-time inference at scale. I've also worked extensively with PyTorch, designed training pipelines, and built systems that bridge the gap between research prototypes and reliable production deployments.
+{% if team_or_product %}What especially stood out to me is the chance to contribute to {{ team_or_product }}, and how focused your team seems on turning advanced ML into reliable product systems.{% elif company_blurb %}What especially stood out to me is how {{ company_blurb|lower }}, and that practical AI focus is the kind of work I find most interesting.{% else %}What especially stood out to me is how focused {{ company_name }} appears to be on deploying practical ML systems that hold up in production.{% endif %}
 
-{% if team_or_product %}The chance to contribute to {{ team_or_product }} especially stood out — it sits right at the intersection of strong engineering and meaningful ML impact.{% elif company_blurb %}I was also drawn to the role by the opportunity to work with a team that {{ company_blurb|lower }}.{% endif %}
+{% if key_technology %}In my recent work, I've been building backend AI systems with FastAPI and Redis in production, and I've also worked on ML infrastructure projects involving {{ key_technology }}. So when I came across this role, it felt like a natural fit with the direction I want to keep growing in.{% else %}In my recent work, I've been building backend AI systems with FastAPI and Redis in production, and I've also worked on ML infrastructure projects using ONNX, Kubernetes, Airflow, and Ray. So when I came across this role, it felt like a natural fit with the direction I want to keep growing in.{% endif %}
 
-{% if key_technology %}A meaningful part of my recent work has involved {{ key_technology }}, and I really enjoy the full arc — moving from experimentation and prototyping into systems that are robust enough for production and can actually be improved over time.{% else %}What I enjoy most is the full arc — going from experimentation and prototyping all the way to production systems that are reliable, maintainable, and actually useful outside of a notebook.{% endif %}
-
-I've attached my resume for reference. You can also find my ML projects here:
-GitHub: https://github.com/kathangabani-nyu
+I've attached my resume here for reference, and you can also find a few of my projects on my GitHub.
 
 Best,
-{{ sender_name }}
-{{ sender_email }}
+Kathan Gabani
+LinkedIn: https://www.linkedin.com/in/kathangabani/
+GitHub: https://github.com/kathangabani-nyu
 {% if sender_signature %}{{ sender_signature }}{% endif %}
