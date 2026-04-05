@@ -1,6 +1,6 @@
 # AutoApply
 
-**AI-assisted, human-approved job outreach.** You use an coding agent (Cursor, Claude Code, etc.) with a **private prompt** that describes your background and rules. The agent researches real roles and people, drafts personalized emails, and uses a small **Python toolkit** on your machine for verification, deduplication, Gmail sending, and a local SQLite log.
+**AI-assisted, human-approved job outreach.** You use a coding agent (Cursor, Claude Code, etc.) with a **private prompt** that describes your background and rules. The agent researches real roles and people, drafts personalized emails, and uses a small **Python toolkit** on your machine for verification, deduplication, Gmail sending, and a local SQLite log.
 
 The older **fully automated pipeline** (`run_daily.py`: ATS discovery → filter → assemble → send) is still in the repo for advanced use, but the default workflow is: **prompt + toolkit + your approval**.
 
